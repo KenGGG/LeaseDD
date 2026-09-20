@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "metric_id": {
+      "title": "Metric Id",
+      "type": "string"
+    },
+    "formula_version": {
+      "default": "synthetic-v1",
+      "title": "Formula Version",
+      "type": "string"
+    },
+    "input_fact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Input Fact Ids",
+      "type": "array"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Value"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Reason"
+    }
+  },
+  "required": [
+    "metric_id",
+    "input_fact_ids",
+    "value",
+    "status",
+    "reason"
+  ],
+  "title": "MetricResult",
+  "type": "object"
+}

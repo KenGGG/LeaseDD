@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "input_hash": {
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "output_sha256": {
+      "title": "Output Sha256",
+      "type": "string"
+    },
+    "execution_state": {
+      "title": "Execution State",
+      "type": "string"
+    },
+    "quality_state": {
+      "title": "Quality State",
+      "type": "string"
+    },
+    "review_state": {
+      "const": "pending",
+      "default": "pending",
+      "title": "Review State",
+      "type": "string"
+    },
+    "synthetic": {
+      "default": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "production_template_status": {
+      "const": "missing",
+      "default": "missing",
+      "title": "Production Template Status",
+      "type": "string"
+    },
+    "formula_version": {
+      "default": "synthetic-v1",
+      "title": "Formula Version",
+      "type": "string"
+    },
+    "template_sha256": {
+      "title": "Template Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "project_id",
+    "input_hash",
+    "output_sha256",
+    "execution_state",
+    "quality_state",
+    "template_sha256"
+  ],
+  "title": "RunManifest",
+  "type": "object"
+}

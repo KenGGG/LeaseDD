@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "section_id": {
+      "default": "SYNTH_SECTION_FINANCE",
+      "title": "Section Id",
+      "type": "string"
+    },
+    "title": {
+      "default": "财务分析测试章节",
+      "title": "Title",
+      "type": "string"
+    },
+    "questions": {
+      "default": [
+        "Q001",
+        "Q002",
+        "Q003"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Questions",
+      "type": "array"
+    },
+    "synthetic": {
+      "default": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "title": "SectionContract",
+  "type": "object"
+}

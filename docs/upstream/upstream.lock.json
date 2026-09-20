@@ -1,0 +1,134 @@
+{
+  "schema_version": "0.1",
+  "checkout_performed": false,
+  "upstream_tests_executed": false,
+  "static_audit_reference": "LeaseDD_Integration_Plan/upstream_audit.json",
+  "repositories": [
+    {
+      "repository": "yoligehude14753/docforge",
+      "commit": null,
+      "commit_status": "not_verified_in_this_implementation",
+      "adoption": "design_reference_only",
+      "copied_source": false,
+      "reviewed_blobs": [
+        {
+          "path": "package.json",
+          "git_blob_sha": "4516d86bba2432e201f26550b2b234b2134278f1",
+          "scope": "full"
+        },
+        {
+          "path": "SKILL.md",
+          "git_blob_sha": "2ffc2de2dbae58500e01ad555abe13e1b2404721",
+          "scope": "full"
+        },
+        {
+          "path": "src/lib/pipeline/generator.ts",
+          "git_blob_sha": "fb12b7963e75b4300db71bbe98d6654eb99ef351",
+          "scope": "full"
+        },
+        {
+          "path": "src/lib/knowledge/parser/pdf-parser.ts",
+          "git_blob_sha": "48cfc54af1652b9f0163d5fbcad226884a5394ee",
+          "scope": "full"
+        },
+        {
+          "path": "src/lib/document/builder.ts",
+          "git_blob_sha": "021803c952a8f2bccfe3c41afe76f2447099dfd2",
+          "scope": "full"
+        },
+        {
+          "path": "src/lib/pipeline/analyzer.ts",
+          "git_blob_sha": "bfc4766939873aa0a1656bf78509700f4ac8a4ff",
+          "scope": "full"
+        },
+        {
+          "path": "src/lib/template/registry.ts",
+          "git_blob_sha": "757f81d94f8168d2c488a5388deb4901085632c4",
+          "scope": "full"
+        },
+        {
+          "path": "LICENSE",
+          "git_blob_sha": "a74e2b0ea622c813e8c6a325e187436511774a9f",
+          "scope": "full"
+        }
+      ]
+    },
+    {
+      "repository": "jamesiford/credit-spread-portal",
+      "commit": null,
+      "commit_status": "not_verified_in_this_implementation",
+      "adoption": "design_reference_only",
+      "copied_source": false,
+      "reviewed_blobs": [
+        {
+          "path": "tools/ratio_calculator.py",
+          "git_blob_sha": "77da8b9f9c842bd583572ee0b897d4514ce83b8e",
+          "scope": "full"
+        },
+        {
+          "path": "tools/chart_of_accounts.py",
+          "git_blob_sha": "2748d78c8f4a75f1e47182cb193910b860936834",
+          "scope": "lines 1-180"
+        },
+        {
+          "path": "tools/schema_loader.py",
+          "git_blob_sha": "8aae21c5be927ca6af7d1707757e8427cbc5de69",
+          "scope": "full"
+        },
+        {
+          "path": "agents/validation_agent.py",
+          "git_blob_sha": "4bce145e4f79b6c20be0def939bc0fff1005d564",
+          "scope": "lines 1-240"
+        }
+      ]
+    },
+    {
+      "repository": "guangshu100/BidMaster-Pro",
+      "commit": null,
+      "commit_status": "not_verified_in_this_implementation",
+      "adoption": "design_reference_only",
+      "copied_source": false,
+      "reviewed_blobs": [
+        {
+          "path": "core/agent_engine/gate_keeper.py",
+          "git_blob_sha": "8dc6fd9359cfa196a743f85b69b9417c83dd17de",
+          "scope": "full"
+        },
+        {
+          "path": "core/agent_engine/orchestrator.py",
+          "git_blob_sha": "118926e8be268e88dd68279114702179aba5c25a",
+          "scope": "full; requested lines 1-240"
+        },
+        {
+          "path": "LICENSE",
+          "git_blob_sha": "0ad25db4bd1d86c452db3f9602ccdbe172438f52",
+          "scope": "lines 1-18"
+        }
+      ]
+    },
+    {
+      "repository": "FB208/OpenBidKit_Yibiao",
+      "commit": null,
+      "commit_status": "not_verified_in_this_implementation",
+      "adoption": "design_reference_only",
+      "copied_source": false,
+      "reviewed_blobs": [
+        {
+          "path": "client/package.json",
+          "git_blob_sha": "a631dfc229d27a85772b7b4686e90c23a1f5c0ad",
+          "scope": "lines 1-145"
+        },
+        {
+          "path": "openxmlhelper/src/OpenXmlHelper/Jobs/ApplyTemplateFieldsAction.cs",
+          "git_blob_sha": "8842ad790c995d63aa731aaa9d3a7df48f525e6d",
+          "scope": "full; requested lines 1-210"
+        },
+        {
+          "path": "LICENSE",
+          "git_blob_sha": "be3f7b28e564e7dd05eaf59d64adba1a4065ac0e",
+          "scope": "lines 1-18"
+        }
+      ]
+    }
+  ]
+}

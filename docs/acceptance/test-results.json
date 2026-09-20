@@ -1,0 +1,85 @@
+{
+  "date": "2026-09-18",
+  "code_commit": null,
+  "git_status": "workspace_has_no_usable_git_repository",
+  "implemented_milestones": [
+    "M0",
+    "M1"
+  ],
+  "production_ready": false,
+  "fixture_set": "synthetic_txt_single_entity_CNY_instant_2025-12-31",
+  "schema_version": "0.1",
+  "formula_version": "synthetic-v1",
+  "framework_version": "synthetic-v1",
+  "template_sha256": "e87c979d65b0e49c6d5618db8884925464d08bd19203731b926e8ac3b0124cd7",
+  "python_version": "3.12.3",
+  "runs": [
+    {
+      "command": ".venv/bin/python -m pytest -q",
+      "database": "SQLite",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 2,
+      "skip_reason": "PostgreSQL-specific concurrency tests",
+      "warnings": 1
+    },
+    {
+      "command": "LEASEDD_TEST_DATABASE_URL=<isolated PostgreSQL URL> .venv/bin/python -m pytest -q",
+      "database": "PostgreSQL 16",
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": 1
+    },
+    {
+      "command": "npm run build --prefix frontend",
+      "status": "passed"
+    },
+    {
+      "command": "docker build -t leasedd-m1-check:local .",
+      "status": "passed"
+    },
+    {
+      "command": "docker build -t leasedd-web-m1-check:local -f deployment/Web.Dockerfile .",
+      "status": "passed"
+    },
+    {
+      "command": "docker compose up -d --no-build (isolated override project)",
+      "database": "PostgreSQL 17",
+      "migration": "0002",
+      "status": "passed"
+    },
+    {
+      "command": "LEASEDD_BROWSER_URL=https://localhost:55443 LEASEDD_BROWSER_IGNORE_HTTPS_ERRORS=1 PLAYWRIGHT_BROWSERS_PATH=<test browser cache> .venv/bin/python tests/browser_acceptance.py",
+      "status": "passed",
+      "note": "Browser certificate trust verification disabled only for the isolated test CA; client CA installation not certified by this test."
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "flow": "login → create accounts/project → upload → source locator → fact import → calculate → generate → DOCX download → reviewer read-only",
+    "desktop": "1440x1024",
+    "mobile": "390x844",
+    "source_sha256": "556cf198c75471649ed64db1b506826779ab81c42ead75652377b3fd22fea7ed",
+    "template_sha256": "e87c979d65b0e49c6d5618db8884925464d08bd19203731b926e8ac3b0124cd7",
+    "report_sha256": "70940445e2a6d8dd00474b3ec156f555c719538cbe8b04b5d06b9f844225a354",
+    "page_errors": [],
+    "synthetic": true
+  },
+  "integrity": {
+    "execution_state": "completed",
+    "quality_state": "passed",
+    "review_state": "pending",
+    "sources": 2,
+    "exports": 2,
+    "errors": []
+  },
+  "unverified": [
+    "real Agnes endpoint",
+    "production framework/template",
+    "target Word/WPS rendering",
+    "full security audit",
+    "complete disaster recovery",
+    "real customer report approval"
+  ]
+}

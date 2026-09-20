@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "model_allowed": {
+      "default": false,
+      "title": "Model Allowed",
+      "type": "boolean"
+    },
+    "parse_state": {
+      "title": "Parse State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "project_id",
+    "name",
+    "sha256",
+    "parse_state"
+  ],
+  "title": "SourceDocument",
+  "type": "object"
+}

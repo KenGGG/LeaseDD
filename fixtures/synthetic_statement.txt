@@ -1,0 +1,5 @@
+total_assets: 100
+total_liabilities: 80
+interest_bearing_debt: 30
+current_assets: 200
+current_liabilities: 100

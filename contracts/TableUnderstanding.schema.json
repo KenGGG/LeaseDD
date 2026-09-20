@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "Proof": {
+      "additionalProperties": false,
+      "properties": {
+        "start_line": {
+          "minimum": 1,
+          "title": "Start Line",
+          "type": "integer"
+        },
+        "end_line": {
+          "minimum": 1,
+          "title": "End Line",
+          "type": "integer"
+        },
+        "quote": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_line",
+        "end_line",
+        "quote"
+      ],
+      "title": "Proof",
+      "type": "object"
+    },
+    "SemanticColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "block_id": {
+          "title": "Block Id",
+          "type": "string"
+        },
+        "column": {
+          "description": "原物理表cells.column坐标，包含科目列的1-based绝对位置；不得只对数值列从1重新编号。",
+          "minimum": 1,
+          "title": "Column",
+          "type": "integer"
+        },
+        "label_column": {
+          "default": 1,
+          "description": "科目原文所在列的cells.column坐标，不能与本数值列column相同。",
+          "minimum": 1,
+          "title": "Label Column",
+          "type": "integer"
+        },
+        "header_rows": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Header Rows",
+          "type": "array"
+        },
+        "period": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Period",
+          "type": "string"
+        },
+        "period_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "instant",
+                "year",
+                "half_year",
+                "quarter",
+                "duration"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "时点 instant；完整年度 year；半年 half_year；季度 quarter；其他起止区间 duration；无法确认 null。",
+          "title": "Period Kind"
+        },
+        "period_basis": {
+          "default": "unknown",
+          "enum": [
+            "opening",
+            "closing",
+            "duration",
+            "unknown"
+          ],
+          "title": "Period Basis",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "consolidated",
+                "parent",
+                "standalone",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope"
+        },
+        "raw_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Unit"
+        },
+        "evidence": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Proof"
+          },
+          "description": "必须用 period 键给出本列期间的原文证据；其他口径若覆盖表级值，使用 entity/scope/unit 键提供相应证据。quote是原文连续子串，行号用输入中的 source_start_line/context.line。",
+          "propertyNames": {
+            "enum": [
+              "entity",
+              "scope",
+              "currency",
+              "unit",
+              "statement_type",
+              "period"
+            ]
+          },
+          "title": "Evidence",
+          "type": "object"
+        }
+      },
+      "required": [
+        "block_id",
+        "column",
+        "period"
+      ],
+      "title": "SemanticColumn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "statement_type": {
+      "enum": [
+        "balance_sheet",
+        "income_statement",
+        "cash_flow_statement"
+      ],
+      "title": "Statement Type",
+      "type": "string"
+    },
+    "entity": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Entity",
+      "type": "string"
+    },
+    "scope": {
+      "enum": [
+        "consolidated",
+        "parent",
+        "standalone",
+        "unknown"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "currency": {
+      "description": "ISO币种代码：人民币 CNY，美元 USD，港币 HKD，欧元 EUR；无法确认 unknown。",
+      "pattern": "^(?:[A-Z]{3}|unknown)$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "raw_unit": {
+      "maxLength": 20,
+      "minLength": 1,
+      "title": "Raw Unit",
+      "type": "string"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Proof"
+      },
+      "description": "使用固定键 entity、scope、currency、unit、statement_type，分别给出主体、口径、币种、单位、报表类型的逐字原文证据；无法找到时省略相应键，不编造。",
+      "propertyNames": {
+        "enum": [
+          "entity",
+          "scope",
+          "currency",
+          "unit",
+          "statement_type",
+          "period"
+        ]
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "columns": {
+      "items": {
+        "$ref": "#/$defs/SemanticColumn"
+      },
+      "maxItems": 200,
+      "minItems": 1,
+      "title": "Columns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "statement_type",
+    "entity",
+    "scope",
+    "currency",
+    "raw_unit",
+    "evidence",
+    "columns"
+  ],
+  "title": "TableUnderstanding",
+  "type": "object"
+}

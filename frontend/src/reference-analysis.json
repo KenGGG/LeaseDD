@@ -1,0 +1,634 @@
+{
+  "每股指标": [
+    {
+      "key": "basic_eps",
+      "label": "基本每股收益(元)",
+      "section": "每股指标",
+      "match": "基本每股收益"
+    },
+    {
+      "key": "source_diluted_eps",
+      "label": "稀释每股收益(元)",
+      "section": "每股指标",
+      "match": "稀释每股收益"
+    },
+    {
+      "key": "ref_0fd37ac0253a",
+      "label": "扣非后基本每股收益(元)",
+      "section": "每股指标",
+      "match": "扣非后基本每股收益"
+    },
+    {
+      "key": "ref_f2f377fc932f",
+      "label": "扣非后稀释每股收益(元)",
+      "section": "每股指标",
+      "match": "扣非后稀释每股收益"
+    },
+    {
+      "key": "ref_fc85e315a575",
+      "label": "摊薄每股收益(元)",
+      "section": "每股指标",
+      "match": "摊薄每股收益"
+    },
+    {
+      "key": "ref_fefd0cda7e8f",
+      "label": "每股净资产(元)",
+      "section": "每股指标",
+      "match": "每股净资产"
+    },
+    {
+      "key": "revenue_per_share",
+      "label": "每股营业总收入(元)",
+      "section": "每股指标",
+      "match": "每股营业总收入"
+    },
+    {
+      "key": "ref_04dec12cf05c",
+      "label": "每股营业收入(元)",
+      "section": "每股指标",
+      "match": "每股营业收入"
+    },
+    {
+      "key": "ref_0ce4830ed4cb",
+      "label": "每股营业利润(元)",
+      "section": "每股指标",
+      "match": "每股营业利润"
+    },
+    {
+      "key": "ref_7f7c57798342",
+      "label": "每股资本公积金(元)",
+      "section": "每股指标",
+      "match": "每股资本公积金"
+    },
+    {
+      "key": "ref_ad7f1a99d935",
+      "label": "每股盈余公积金(元)",
+      "section": "每股指标",
+      "match": "每股盈余公积金"
+    },
+    {
+      "key": "ref_eb8fb0f36329",
+      "label": "每股未分配利润(元)",
+      "section": "每股指标",
+      "match": "每股未分配利润"
+    },
+    {
+      "key": "ref_1105661b7ab4",
+      "label": "每股经营现金流(元)",
+      "section": "每股指标",
+      "match": "每股经营现金流"
+    },
+    {
+      "key": "ref_c23af7bdca31",
+      "label": "每股现金流(元)",
+      "section": "每股指标",
+      "match": "每股现金流"
+    },
+    {
+      "key": "ref_6d900223c609",
+      "label": "每股企业自由现金流(元)",
+      "section": "每股指标",
+      "match": "每股企业自由现金流"
+    },
+    {
+      "key": "ref_3673f0547252",
+      "label": "每股股东自由现金流(元)",
+      "section": "每股指标",
+      "match": "每股股东自由现金流"
+    }
+  ],
+  "盈利能力": [
+    {
+      "key": "roe_average",
+      "label": "平均净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "平均净资产收益率(ROE)"
+    },
+    {
+      "key": "roe",
+      "label": "加权净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "加权净资产收益率(ROE)"
+    },
+    {
+      "key": "roe_diluted",
+      "label": "摊薄净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "摊薄净资产收益率(ROE)"
+    },
+    {
+      "key": "roe_ex_average",
+      "label": "扣非后平均净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "扣非后平均净资产收益率(ROE)"
+    },
+    {
+      "key": "ref_4e16faccae71",
+      "label": "扣非后加权净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "扣非后加权净资产收益率(ROE)"
+    },
+    {
+      "key": "roe_ex_diluted",
+      "label": "扣非后摊薄净资产收益率(ROE)(%)",
+      "section": "盈利能力",
+      "match": "扣非后摊薄净资产收益率(ROE)"
+    },
+    {
+      "key": "ref_b4c3d07dc96d",
+      "label": "总资产报酬率(%)",
+      "section": "盈利能力",
+      "match": "总资产报酬率"
+    },
+    {
+      "key": "roa",
+      "label": "总资产收益率(ROA)(%)",
+      "section": "盈利能力",
+      "match": "总资产收益率(ROA)"
+    },
+    {
+      "key": "ref_11fb927d6940",
+      "label": "销售毛利率(%)",
+      "section": "盈利能力",
+      "match": "销售毛利率"
+    },
+    {
+      "key": "ref_ce2505f9f1f4",
+      "label": "销售净利率(%)",
+      "section": "盈利能力",
+      "match": "销售净利率"
+    },
+    {
+      "key": "ref_8e4f48e9e6d9",
+      "label": "营业成本率(%)",
+      "section": "盈利能力",
+      "match": "营业成本率"
+    },
+    {
+      "key": "ref_0cb7687ff134",
+      "label": "营业费用率(%)",
+      "section": "盈利能力",
+      "match": "营业费用率"
+    },
+    {
+      "key": "ref_b05f69a2be28",
+      "label": "管理费用率(%)",
+      "section": "盈利能力",
+      "match": "管理费用率"
+    },
+    {
+      "key": "ref_c716c6cfda03",
+      "label": "研发费用率(%)",
+      "section": "盈利能力",
+      "match": "研发费用率"
+    },
+    {
+      "key": "ref_4e995df9cffa",
+      "label": "财务费用率(%)",
+      "section": "盈利能力",
+      "match": "财务费用率"
+    },
+    {
+      "key": "ref_3b0556a53f49",
+      "label": "期间费用率(%)",
+      "section": "盈利能力",
+      "match": "期间费用率"
+    },
+    {
+      "key": "ref_a2d42b56c668",
+      "label": "营业利润率(%)",
+      "section": "盈利能力",
+      "match": "营业利润率"
+    },
+    {
+      "key": "ref_8f8aa889a241",
+      "label": "息税前利润率(%)",
+      "section": "盈利能力",
+      "match": "息税前利润率"
+    },
+    {
+      "key": "ref_41864cd9dbed",
+      "label": "息税折旧摊销前利润率(%)",
+      "section": "盈利能力",
+      "match": "息税折旧摊销前利润率"
+    },
+    {
+      "key": "ref_bb5ac5b6bd62",
+      "label": "营业总成本/营业总收入(%)",
+      "section": "盈利能力",
+      "match": "营业总成本/营业总收入"
+    },
+    {
+      "key": "selling_rate",
+      "label": "销售费用/营业总收入(%)",
+      "section": "盈利能力",
+      "match": "销售费用/营业总收入"
+    },
+    {
+      "key": "admin_rate",
+      "label": "管理费用/营业总收入(%)",
+      "section": "盈利能力",
+      "match": "管理费用/营业总收入"
+    },
+    {
+      "key": "research_rate",
+      "label": "研发费用/营业总收入(%)",
+      "section": "盈利能力",
+      "match": "研发费用/营业总收入"
+    },
+    {
+      "key": "ref_58aa83489ae3",
+      "label": "经营活动净收益/利润总额(%)",
+      "section": "盈利能力",
+      "match": "经营活动净收益/利润总额"
+    },
+    {
+      "key": "finance_rate",
+      "label": "财务费用/营业总收入(%)",
+      "section": "盈利能力",
+      "match": "财务费用/营业总收入"
+    },
+    {
+      "key": "ref_b851fb8b9d9e",
+      "label": "价值变动净收益/利润总额(%)",
+      "section": "盈利能力",
+      "match": "价值变动净收益/利润总额"
+    },
+    {
+      "key": "ref_42c3275797e8",
+      "label": "营业外收支净额/利润总额(%)",
+      "section": "盈利能力",
+      "match": "营业外收支净额/利润总额"
+    },
+    {
+      "key": "ref_9025252552e1",
+      "label": "所得税/利润总额(%)",
+      "section": "盈利能力",
+      "match": "所得税/利润总额"
+    },
+    {
+      "key": "ref_f69df908a875",
+      "label": "扣除非经常损益后的净利润/净利润(%)",
+      "section": "盈利能力",
+      "match": "扣除非经常损益后的净利润/净利润"
+    }
+  ],
+  "偿债能力": [
+    {
+      "key": "ref_1c9889ffa7b3",
+      "label": "资产负债率(%)",
+      "section": "偿债能力",
+      "match": "资产负债率"
+    },
+    {
+      "key": "equity_multiplier_end",
+      "label": "权益乘数(倍)",
+      "section": "偿债能力",
+      "match": "权益乘数"
+    },
+    {
+      "key": "ref_24d7a945bad8",
+      "label": "流动资产/总资产(%)",
+      "section": "偿债能力",
+      "match": "流动资产/总资产"
+    },
+    {
+      "key": "ref_5ac2cc1cbcf3",
+      "label": "非流动资产/总资产(%)",
+      "section": "偿债能力",
+      "match": "非流动资产/总资产"
+    },
+    {
+      "key": "ref_ca1560c38b47",
+      "label": "归母净资产/投入资本(%)",
+      "section": "偿债能力",
+      "match": "归母净资产/投入资本"
+    },
+    {
+      "key": "ref_097452dbbbff",
+      "label": "有息债务/投入资本(%)",
+      "section": "偿债能力",
+      "match": "有息债务/投入资本"
+    },
+    {
+      "key": "ref_1d45167faf37",
+      "label": "流动负债/总负债(%)",
+      "section": "偿债能力",
+      "match": "流动负债/总负债"
+    },
+    {
+      "key": "ref_4e6e9d77b6c7",
+      "label": "非流动负债/总负债(%)",
+      "section": "偿债能力",
+      "match": "非流动负债/总负债"
+    },
+    {
+      "key": "ref_6cdc95cb0e82",
+      "label": "流动比率(%)",
+      "section": "偿债能力",
+      "match": "流动比率"
+    },
+    {
+      "key": "ref_cb5f7b08c174",
+      "label": "速动比率(%)",
+      "section": "偿债能力",
+      "match": "速动比率"
+    },
+    {
+      "key": "ref_16a5df7372cd",
+      "label": "保守速动比率(%)",
+      "section": "偿债能力",
+      "match": "保守速动比率"
+    },
+    {
+      "key": "cash_ratio",
+      "label": "现金比率(%)",
+      "section": "偿债能力",
+      "match": "现金比率"
+    },
+    {
+      "key": "ref_11c0ad04349d",
+      "label": "营运资金",
+      "section": "偿债能力",
+      "match": "营运资金"
+    },
+    {
+      "key": "ref_d74a32792806",
+      "label": "现金流动负债比率(倍)",
+      "section": "偿债能力",
+      "match": "现金流动负债比率"
+    },
+    {
+      "key": "ref_81971fc256bf",
+      "label": "经营现金流量短期债务比(倍)",
+      "section": "偿债能力",
+      "match": "经营现金流量短期债务比"
+    },
+    {
+      "key": "ebit_cover",
+      "label": "EBIT利息保障倍数(倍)",
+      "section": "偿债能力",
+      "match": "EBIT利息保障倍数"
+    },
+    {
+      "key": "ebitda_cover",
+      "label": "EBITDA利息保障倍数(倍)",
+      "section": "偿债能力",
+      "match": "EBITDA利息保障倍数"
+    },
+    {
+      "key": "ref_aac1b432f2b5",
+      "label": "现金流量利息保障倍数(倍)",
+      "section": "偿债能力",
+      "match": "现金流量利息保障倍数"
+    },
+    {
+      "key": "ref_685da3435357",
+      "label": "经营活动净现金/总负债(倍)",
+      "section": "偿债能力",
+      "match": "经营活动净现金/总负债"
+    },
+    {
+      "key": "ref_c23bceb66e4e",
+      "label": "经营活动净现金/有息债务(倍)",
+      "section": "偿债能力",
+      "match": "经营活动净现金/有息债务"
+    },
+    {
+      "key": "ref_0b7256e45f2b",
+      "label": "经营活动净现金/非流动负债(倍)",
+      "section": "偿债能力",
+      "match": "经营活动净现金/非流动负债"
+    },
+    {
+      "key": "ref_a88628007b18",
+      "label": "经营活动净现金/净债务(倍)",
+      "section": "偿债能力",
+      "match": "经营活动净现金/净债务"
+    },
+    {
+      "key": "ref_0c51f854a5f2",
+      "label": "EBITDA/有息债务(倍)",
+      "section": "偿债能力",
+      "match": "EBITDA/有息债务"
+    },
+    {
+      "key": "ref_6eb878ff69d8",
+      "label": "有息债务/EBITDA(倍)",
+      "section": "偿债能力",
+      "match": "有息债务/EBITDA"
+    }
+  ],
+  "营运能力": [
+    {
+      "key": "ref_857297413c12",
+      "label": "营业周期(天)",
+      "section": "营运能力",
+      "match": "营业周期"
+    },
+    {
+      "key": "ref_16c3748e4f44",
+      "label": "现金周期(天)",
+      "section": "营运能力",
+      "match": "现金周期"
+    },
+    {
+      "key": "inventory_turnover_days",
+      "label": "存货周转天数(天)",
+      "section": "营运能力",
+      "match": "存货周转天数"
+    },
+    {
+      "key": "receivable_turnover_days",
+      "label": "应收账款周转天数(天)",
+      "section": "营运能力",
+      "match": "应收账款周转天数"
+    },
+    {
+      "key": "ref_548b44d61c6e",
+      "label": "应付账款周转天数(天)",
+      "section": "营运能力",
+      "match": "应付账款周转天数"
+    },
+    {
+      "key": "inventory_turnover",
+      "label": "存货周转率(次)",
+      "section": "营运能力",
+      "match": "存货周转率"
+    },
+    {
+      "key": "receivable_turnover",
+      "label": "应收账款周转率(次)",
+      "section": "营运能力",
+      "match": "应收账款周转率"
+    },
+    {
+      "key": "ref_7deb3a15069c",
+      "label": "应付账款周转率(次)",
+      "section": "营运能力",
+      "match": "应付账款周转率"
+    },
+    {
+      "key": "ref_f5b2b1baa925",
+      "label": "流动资产周转率(次)",
+      "section": "营运能力",
+      "match": "流动资产周转率"
+    },
+    {
+      "key": "ref_e8a9532e2a69",
+      "label": "固定资产周转率(次)",
+      "section": "营运能力",
+      "match": "固定资产周转率"
+    },
+    {
+      "key": "asset_turnover",
+      "label": "总资产周转率(次)",
+      "section": "营运能力",
+      "match": "总资产周转率"
+    }
+  ],
+  "成长能力": [
+    {
+      "key": "ref_29fab6dd9a0c",
+      "label": "基本每股收益(%)",
+      "section": "成长能力",
+      "match": "基本每股收益"
+    },
+    {
+      "key": "ref_a2059e67c058",
+      "label": "稀释每股收益(%)",
+      "section": "成长能力",
+      "match": "稀释每股收益"
+    },
+    {
+      "key": "ref_ba2882a6a5da",
+      "label": "每股经营现金流(%)",
+      "section": "成长能力",
+      "match": "每股经营现金流"
+    },
+    {
+      "key": "disclosed_2e707f677daed9d853eeccc59ac62b40_growth",
+      "label": "营业总收入(%)",
+      "section": "成长能力",
+      "match": "营业总收入"
+    },
+    {
+      "key": "revenue_growth",
+      "label": "营业收入(%)",
+      "section": "成长能力",
+      "match": "营业收入"
+    },
+    {
+      "key": "total_profit_growth",
+      "label": "利润总额(%)",
+      "section": "成长能力",
+      "match": "利润总额"
+    },
+    {
+      "key": "operating_profit_growth",
+      "label": "营业利润(%)",
+      "section": "成长能力",
+      "match": "营业利润"
+    },
+    {
+      "key": "net_profit_growth",
+      "label": "净利润(%)",
+      "section": "成长能力",
+      "match": "净利润"
+    },
+    {
+      "key": "net_profit_attributable_to_parent_growth",
+      "label": "归母净利润(%)",
+      "section": "成长能力",
+      "match": "归母净利润"
+    },
+    {
+      "key": "net_operating_cash_flow_growth",
+      "label": "经营活动净现金(%)",
+      "section": "成长能力",
+      "match": "经营活动净现金"
+    },
+    {
+      "key": "net_assets_per_share_growth",
+      "label": "每股净资产(%)",
+      "section": "成长能力",
+      "match": "每股净资产"
+    },
+    {
+      "key": "total_assets_opening_growth",
+      "label": "总资产(%)",
+      "section": "成长能力",
+      "match": "总资产"
+    },
+    {
+      "key": "total_liabilities_opening_growth",
+      "label": "总负债(%)",
+      "section": "成长能力",
+      "match": "总负债"
+    },
+    {
+      "key": "parent_equity_opening_growth",
+      "label": "归母净资产(%)",
+      "section": "成长能力",
+      "match": "归母净资产"
+    }
+  ],
+  "现金流量": [
+    {
+      "key": "cash_sales_multiple",
+      "label": "销售收现比(倍)",
+      "section": "现金流量",
+      "match": "销售收现比"
+    },
+    {
+      "key": "cash_profit_multiple",
+      "label": "净现比(倍)",
+      "section": "现金流量",
+      "match": "净现比"
+    },
+    {
+      "key": "cash_revenue_multiple",
+      "label": "经营活动净现金/营业收入(倍)",
+      "section": "现金流量",
+      "match": "经营活动净现金/营业收入"
+    },
+    {
+      "key": "ref_f0bf8c549e43",
+      "label": "现金运营指数(倍)",
+      "section": "现金流量",
+      "match": "现金运营指数"
+    }
+  ],
+  "杜邦分析": [
+    {
+      "key": "roe_average",
+      "label": "净资产收益率(%)",
+      "section": "杜邦分析",
+      "match": "净资产收益率"
+    },
+    {
+      "key": "ref_5a0cfab48fc4",
+      "label": "同比增减(%)",
+      "section": "杜邦分析",
+      "match": "同比增减"
+    },
+    {
+      "key": "net_margin",
+      "label": "净利润率(%)",
+      "section": "杜邦分析",
+      "match": "净利润率"
+    },
+    {
+      "key": "asset_turnover",
+      "label": "总资产周转率(次)",
+      "section": "杜邦分析",
+      "match": "总资产周转率"
+    },
+    {
+      "key": "equity_multiplier",
+      "label": "权益乘数-平均(倍)",
+      "section": "杜邦分析",
+      "match": "权益乘数-平均"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "$defs": {
+    "ClassifiedTable": {
+      "additionalProperties": false,
+      "properties": {
+        "block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Block Ids",
+          "type": "array"
+        },
+        "classification": {
+          "enum": [
+            "primary",
+            "note",
+            "other_financial",
+            "non_financial",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_ids",
+        "classification"
+      ],
+      "title": "ClassifiedTable",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/ClassifiedTable"
+      },
+      "maxItems": 5000,
+      "title": "Tables",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tables"
+  ],
+  "title": "DocumentClassification",
+  "type": "object"
+}

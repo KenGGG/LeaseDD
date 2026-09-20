@@ -1,0 +1,78 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "concept": {
+      "enum": [
+        "total_assets",
+        "total_liabilities",
+        "interest_bearing_debt",
+        "current_assets",
+        "current_liabilities",
+        "inventory",
+        "revenue",
+        "cost"
+      ],
+      "title": "Concept",
+      "type": "string"
+    },
+    "value": {
+      "maxLength": 100,
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "title": "Value",
+      "type": "string"
+    },
+    "entity": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Entity",
+      "type": "string"
+    },
+    "scope": {
+      "enum": [
+        "consolidated",
+        "parent"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "period": {
+      "format": "date",
+      "title": "Period",
+      "type": "string"
+    },
+    "currency": {
+      "const": "CNY",
+      "title": "Currency",
+      "type": "string"
+    },
+    "unit": {
+      "const": "yuan",
+      "title": "Unit",
+      "type": "string"
+    },
+    "line": {
+      "minimum": 1,
+      "title": "Line",
+      "type": "integer"
+    },
+    "quote": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Quote",
+      "type": "string"
+    }
+  },
+  "required": [
+    "concept",
+    "value",
+    "entity",
+    "scope",
+    "period",
+    "currency",
+    "unit",
+    "line",
+    "quote"
+  ],
+  "title": "Fact",
+  "type": "object"
+}

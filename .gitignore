@@ -1,0 +1,32 @@
+.venv/
+node_modules/
+frontend/dist/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+runtime/
+*.pyc
+
+# Machine-local agent state and editor files
+.agents/
+.codex/
+.idea/
+.vscode/
+.DS_Store
+
+# Local databases, backups, logs, and credentials
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.dump
+*.sql.gz
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+backups/

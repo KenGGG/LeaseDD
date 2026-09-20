@@ -1,0 +1,63 @@
+{
+  "document_id": "REPLACE_WITH_UPLOADED_DOCUMENT_ID",
+  "sha256": "556cf198c75471649ed64db1b506826779ab81c42ead75652377b3fd22fea7ed",
+  "reason": "合成测试首次核对",
+  "facts": [
+    {
+      "concept": "total_assets",
+      "value": "100",
+      "entity": "E001",
+      "scope": "consolidated",
+      "period": "2025-12-31",
+      "currency": "CNY",
+      "unit": "yuan",
+      "line": 1,
+      "quote": "total_assets: 100"
+    },
+    {
+      "concept": "total_liabilities",
+      "value": "80",
+      "entity": "E001",
+      "scope": "consolidated",
+      "period": "2025-12-31",
+      "currency": "CNY",
+      "unit": "yuan",
+      "line": 2,
+      "quote": "total_liabilities: 80"
+    },
+    {
+      "concept": "interest_bearing_debt",
+      "value": "30",
+      "entity": "E001",
+      "scope": "consolidated",
+      "period": "2025-12-31",
+      "currency": "CNY",
+      "unit": "yuan",
+      "line": 3,
+      "quote": "interest_bearing_debt: 30"
+    },
+    {
+      "concept": "current_assets",
+      "value": "200",
+      "entity": "E001",
+      "scope": "consolidated",
+      "period": "2025-12-31",
+      "currency": "CNY",
+      "unit": "yuan",
+      "line": 4,
+      "quote": "current_assets: 200"
+    },
+    {
+      "concept": "current_liabilities",
+      "value": "100",
+      "entity": "E001",
+      "scope": "consolidated",
+      "period": "2025-12-31",
+      "currency": "CNY",
+      "unit": "yuan",
+      "line": 5,
+      "quote": "current_liabilities: 100"
+    }
+  ],
+  "expected_revision": 2
+}

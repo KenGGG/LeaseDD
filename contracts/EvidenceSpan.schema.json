@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "document_id": {
+      "title": "Document Id",
+      "type": "string"
+    },
+    "line": {
+      "minimum": 1,
+      "title": "Line",
+      "type": "integer"
+    },
+    "quote": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Quote",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document_id",
+    "line",
+    "quote"
+  ],
+  "title": "EvidenceSpan",
+  "type": "object"
+}

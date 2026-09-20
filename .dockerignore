@@ -1,0 +1,9 @@
+.git
+.venv
+runtime
+.env
+frontend/node_modules
+frontend/dist
+__pycache__
+.pytest_cache
+LeaseDD_Integration_Plan

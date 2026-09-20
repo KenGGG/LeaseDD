@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "Block": {
+      "additionalProperties": false,
+      "properties": {
+        "block_id": {
+          "title": "Block Id",
+          "type": "string"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/Segment"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "block_id",
+        "segments"
+      ],
+      "title": "Block",
+      "type": "object"
+    },
+    "QuestionAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "question_id": {
+          "enum": [
+            "Q001",
+            "Q002",
+            "Q003"
+          ],
+          "title": "Question Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "partial",
+            "gap",
+            "not_applicable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Block Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question_id",
+        "status",
+        "block_ids"
+      ],
+      "title": "QuestionAnswer",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "text",
+            "metric"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Segment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "section_id": {
+      "const": "SYNTH_SECTION_FINANCE",
+      "title": "Section Id",
+      "type": "string"
+    },
+    "title": {
+      "const": "财务分析测试章节",
+      "title": "Title",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "question_answers": {
+      "items": {
+        "$ref": "#/$defs/QuestionAnswer"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Question Answers",
+      "type": "array"
+    },
+    "blocks": {
+      "items": {
+        "$ref": "#/$defs/Block"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Blocks",
+      "type": "array"
+    },
+    "table_id": {
+      "const": "SYNTH_FINANCE_TABLE",
+      "title": "Table Id",
+      "type": "string"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "section_id",
+    "title",
+    "input_hash",
+    "question_answers",
+    "blocks",
+    "table_id",
+    "synthetic"
+  ],
+  "title": "SectionDraft",
+  "type": "object"
+}

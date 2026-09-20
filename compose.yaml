@@ -1,0 +1,77 @@
+name: leasedd
+x-app: &app
+  build: .
+  environment: &env
+    LEASEDD_DATABASE_URL: postgresql+psycopg://leasedd:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db/leasedd
+    LEASEDD_DATA_DIR: /data/files
+    LEASEDD_SECURE_COOKIE: "${LEASEDD_SECURE_COOKIE:-true}"
+    LEASEDD_PUBLIC_ORIGIN: "${LEASEDD_PUBLIC_ORIGIN:-https://localhost}"
+    AGNES_API_KEY: ${AGNES_API_KEY:-}
+    MINERU_URL: ${MINERU_URL:-http://host.docker.internal:58000}
+  volumes:
+    - project_files:/data/files
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: leasedd
+      POSTGRES_DB: leasedd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leasedd"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+  bootstrap:
+    <<: *app
+    command: ["python", "-m", "leasedd.cli", "bootstrap"]
+    environment:
+      <<: *env
+      LEASEDD_ADMIN_USER: ${LEASEDD_ADMIN_USER:-admin}
+      LEASEDD_ADMIN_PASSWORD: ${LEASEDD_ADMIN_PASSWORD:?Set LEASEDD_ADMIN_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  api:
+    <<: *app
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  worker:
+    <<: *app
+    command: ["python", "-m", "leasedd.worker"]
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: deployment/Web.Dockerfile
+    environment:
+      LEASEDD_HOST: ${LEASEDD_HOST:-localhost}
+    ports:
+      - "${LEASEDD_BIND_IP:-127.0.0.1}:${LEASEDD_PORT:-5173}:80"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+volumes:
+  database:
+  project_files:
+  caddy_data:
+  caddy_config:

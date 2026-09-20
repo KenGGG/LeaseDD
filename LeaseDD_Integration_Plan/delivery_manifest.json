@@ -1,0 +1,42 @@
+{
+  "kind": "document_delivery_manifest",
+  "date": "2026-09-18",
+  "application_implemented": false,
+  "files": [
+    {
+      "name": "01_LeaseDD完整整合方案.md",
+      "bytes": 43815,
+      "sha256": "8b50c633174ce9bb82738be6eaae5ee3b7a6dea03ebb867a3d2079015862d195"
+    },
+    {
+      "name": "02_源码核查与迁移矩阵.md",
+      "bytes": 8848,
+      "sha256": "0133b816e2cbadb8154abc9da05b5e660f82f3d0f7b51243212418b7adef7a76"
+    },
+    {
+      "name": "03_Codex首轮实施指令.md",
+      "bytes": 6905,
+      "sha256": "921105f36e432b1e064f6371a4477b1b4691362e2755bcf9ff7f2a4ac75c2401"
+    },
+    {
+      "name": "04_验收场景与反例.md",
+      "bytes": 6757,
+      "sha256": "fd5bc14e262b235bf6b4772b33c336fa7738cbc7f7460e488f3a63d0412086b0"
+    },
+    {
+      "name": "05_数据契约与命令接口.md",
+      "bytes": 11514,
+      "sha256": "8978707d2f22f1ac63dde20c63dab92517f9242306d1d4e0f2d7d129cfa15870"
+    },
+    {
+      "name": "README.md",
+      "bytes": 1368,
+      "sha256": "8d3c982864b096f9d28ac53b30e9047aede7406f701a5238c5d81aefb88b908b"
+    },
+    {
+      "name": "upstream_audit.json",
+      "bytes": 13392,
+      "sha256": "62fdb3bd6bd47e06a9bec6cc159d2dbaa680f101e1c58d2223c317c2f6f44996"
+    }
+  ]
+}

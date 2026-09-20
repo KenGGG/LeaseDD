@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "planned_categories": [
+    "listed_manufacturing",
+    "listed_software",
+    "listed_property_or_construction",
+    "private_manufacturing",
+    "group_company",
+    "standalone_company",
+    "audit_report",
+    "annual_report",
+    "interim_report",
+    "quarterly_report",
+    "xlsx_statement",
+    "scanned_statement"
+  ],
+  "files": []
+}
