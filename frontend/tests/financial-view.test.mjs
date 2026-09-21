@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
+import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
@@ -118,4 +119,25 @@ test('source and formula diagnostics are separate and never suppress values',()=
  assert.equal(cellState([{statement:conflict,item:conflict.items[0]}]).value,'100');
  const missing={...conflict,source_status:'needs_review',checks:[{...conflict.checks[0],status:'not_checked_missing_disclosure',missing_concepts:['total_equity']}]};
  assert.deepEqual(diagnosticSummary([missing]),['来源待核对','缺少披露项，未检查']);
+});
+
+test('enterprise helpers preserve candidates and require explicit selection',()=>{
+ const candidates=[{code:'a',name:'甲公司',identity:{}},{code:'b',name:'甲科技',identity:{}}];
+ assert.equal(selectedEnterpriseCandidate(candidates,''),null);
+ assert.equal(selectedEnterpriseCandidate(candidates,'b')?.name,'甲科技');
+ assert.equal(candidates.length,2);
+});
+
+test('enterprise coverage, partial state and task labels stay provider-specific',()=>{
+ const modules=[...Array(4)].map((_,i)=>({category:i?'statements':'indicators',module_key:'s'+i})).concat(
+  [...Array(7)].map((_,i)=>({category:'analysis',module_key:'a'+i})),
+  [...Array(6)].map((_,i)=>({category:'notes',module_key:'n'+i})),
+ );
+ assert.deepEqual(enterpriseCoverage(modules),{statements:4,analysis:7,notes:6,total:17});
+ assert.equal(enterpriseStateLabel('partial'),'导入不完整');
+ assert.deepEqual(failedEnterpriseModules({x:{state:'failed',error:'empty_module'},y:{state:'completed',error:null}}),['x']);
+ assert.deepEqual(taskDisplay({kind:'enterprise_import',mode:'qyyjt'}),{label:'企业预警通财务导入',mode:'结构化接口'});
+ assert.equal(taskDisplay({kind:'enterprise_import',mode:'qyyjt'}).label.includes('Agnes'),false);
+ assert.equal(usesPdfEvidence('enterprise_warning'),false);
+ assert.equal(usesPdfEvidence(undefined),true);
 });

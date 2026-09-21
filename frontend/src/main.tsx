@@ -1,7 +1,7 @@
 import React,{useEffect,useState,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {LayoutDashboard,FolderOpen,Files,ChartNoAxesCombined,FileText,ShieldCheck,Settings,LogOut,Plus,ArrowRight,Upload,Download,RefreshCw,Check,ChevronRight,Clock,LockKeyhole,Search,Activity} from 'lucide-react';
-import {api,setCsrf,display,metricLabels,conceptLabels,reasonLabel,friendly,User,Project,Doc,Section,Task,Draft,FinancialStatement} from './api';
+import {api,setCsrf,display,metricLabels,conceptLabels,reasonLabel,friendly,taskDisplay,User,Project,Doc,Section,Task,Draft,FinancialStatement} from './api';
 import './style.css';
 import FinancialWorkspace from './FinancialWorkspace';
 
@@ -61,7 +61,10 @@ function Login({error,busy,onSubmit}:{error:string;busy:boolean;onSubmit:(u:stri
 function Stat({label,value,icon:Icon}:{label:string;value:string|number;icon:typeof Files}){return <div className="stat"><div><span>{label}</span><strong>{value}</strong></div><span className="stat-icon"><Icon size={20}/></span></div>}
 function Empty({title,text}:{title:string;text:string}){return <div className="empty"><span><FolderOpen size={27}/></span><h3>{title}</h3><p>{text}</p></div>}
 function extractionSummary(manifest:{quality_state?:string;counts?:Record<string,number>}){const counts=manifest.counts||{},verified=counts.VERIFIED||0,pending=(counts.CONFLICT||0)+(counts.GAP||0)+(counts.UNMAPPED||0);const quality=manifest.quality_state==='passed'?'已完成':manifest.quality_state==='failed'?'识别失败':'待核对';return `识别结果：${quality} · 已核验 ${verified} 项 · 待核对/未匹配 ${pending} 项`}
-function TaskList({tasks}:{tasks:Task[]}){const labels:Record<string,string>={queued:'排队中',running:'处理中',completed:'已完成',failed:'失败',stale:'输入已过期'};return <div className="panel"><div className="panel-head"><div><h2>任务记录</h2><p>后台执行与质量结果分别记录</p></div><Clock size={18}/></div>{tasks.length===0?<div className="quiet">暂无任务</div>:<div className="task-list">{tasks.map(t=><div key={t.id}><span className={'task-dot '+t.state}/><div><strong>{t.kind==='generate'?'章节生成':t.kind==='extract_finance'?'资料转换与财务提取':'Word 导出'}<span className="muted"> · {t.mode==='agnes'?'Agnes':t.mode==='auto'?'MinerU / MarkItDown + Agnes':'合成验证'}</span></strong><small>{t.id.slice(0,12)} · 尝试 {t.attempts}/3{t.reason?' · '+friendly(t.reason):''}</small></div><span className="badge">{labels[t.state]||t.state}</span>{t.state==='completed'&&<span className="badge subtle">{t.quality_state==='passed_with_gaps'?'校验通过 · 含缺口':'校验通过'} · 未人审</span>}</div>)}</div>}</div>}
+function TaskList({tasks}:{tasks:Task[]}){
+ const labels:Record<string,string>={queued:'排队中',running:'处理中',completed:'已完成',failed:'失败',stale:'输入已过期'};
+ return <div className="panel"><div className="panel-head"><div><h2>任务记录</h2><p>后台执行与质量结果分别记录</p></div><Clock size={18}/></div>{tasks.length===0?<div className="quiet">暂无任务</div>:<div className="task-list">{tasks.map(t=>{const display=taskDisplay(t);return <div key={t.id}><span className={'task-dot '+t.state}/><div><strong>{display.label}<span className="muted"> · {display.mode}</span></strong><small>{t.id.slice(0,12)} · 尝试 {t.attempts}/3{t.reason?' · '+friendly(t.reason):''}</small></div><span className="badge">{labels[t.state]||t.state}</span>{t.state==='completed'&&<span className="badge subtle">{t.quality_state==='passed_with_gaps'?'校验通过 · 含缺口':'校验通过'} · 未人审</span>}</div>})}</div>}</div>
+}
 function Documents({docs,tasks,pid,writer,busy,perform,refresh}:{docs:Doc[];tasks:Task[];pid:string;writer:boolean;busy:boolean;perform:(fn:()=>Promise<void>)=>void;refresh:()=>Promise<void>}){
  const [selected,setSelected]=useState<Set<string>>(new Set()),[allowModel,setAllowModel]=useState(true),[reprocess,setReprocess]=useState(false),[evidence,setEvidence]=useState<{name:string;lines:string[]}|null>(null),[markdown,setMarkdown]=useState<{name:string;text:string}|null>(null),[batchMessage,setBatchMessage]=useState('');
  const taskFor=(id:string)=>tasks.find(t=>t.kind==='extract_finance'&&t.result?.document_id===id);

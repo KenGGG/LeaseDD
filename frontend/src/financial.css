@@ -230,3 +230,8 @@
 
 
 .finance-nav .finance-leaf{padding-left:35px;font-size:13px;line-height:1.5}
+.enterprise-panel{display:flex;justify-content:space-between;gap:16px;padding:14px 18px;margin-bottom:18px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#fff)}
+.enterprise-panel>div:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.enterprise-panel small{display:block;width:100%;color:var(--muted)}
+.enterprise-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.enterprise-actions input,.enterprise-actions select{min-height:36px}
+.enterprise-modules{display:grid;gap:10px}.enterprise-modules details{border:1px solid var(--border);border-radius:8px;padding:10px 12px}.enterprise-modules summary{display:flex;justify-content:space-between;cursor:pointer;font-weight:600}.enterprise-modules pre{max-height:420px;overflow:auto;font-size:12px;white-space:pre-wrap}
+@media(max-width:800px){.enterprise-panel{flex-direction:column}.enterprise-actions>*{width:100%}}
