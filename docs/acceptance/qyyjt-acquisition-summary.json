@@ -4,6 +4,7 @@
     "transport": "xhr",
     "method": "GET",
     "path_template": "/finchinaAPP/v1/finchina-search/v1/multipleSearch",
+    "response_media_type": "application/json",
     "request_parameters": [
       "isRelationSearch",
       "pagesize",
@@ -24,7 +25,14 @@
       "url",
       "jumpAddress"
     ],
-    "multiple_candidate_behavior": "response data.list contains zero or more ranked candidates"
+    "listing_indicator_fields": ["stock", "symbol", "market", "status"],
+    "finance_availability_indicator": null,
+    "finance_availability_unknown_reason": "no explicit reliable boolean was observed in the search candidate; verify by requesting the selected company's finance endpoint",
+    "multiple_candidate_behavior": "response data.list contains zero or more ranked candidates",
+    "observed_candidate_counts": {
+      "exact_name": 4,
+      "ambiguous_short_name": 15
+    }
   },
   "categories": [
     {
@@ -44,11 +52,11 @@
       "name": "资产负债表",
       "transport": "xhr_json",
       "method": "GET",
-      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports",
       "request_count": 1,
       "all_periods_in_one_response": true,
-      "unit_location": "data.unit parallel array",
-      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "unit_location": "request unitCode/displayCurrency plus response data.CUCodeUnCast; no data.unit array observed",
+      "value_shape": "data.head/key/level parallel field arrays plus data.value[period][field]",
       "descendant_discovery": "not_applicable",
       "export_availability": "not_observed",
       "dom_fallback": null
@@ -57,11 +65,11 @@
       "name": "利润表",
       "transport": "xhr_json",
       "method": "GET",
-      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports",
       "request_count": 1,
       "all_periods_in_one_response": true,
-      "unit_location": "data.unit parallel array",
-      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "unit_location": "request unitCode/displayCurrency plus response data.CUCodeUnCast; no data.unit array observed",
+      "value_shape": "data.head/key/level parallel field arrays plus data.value[period][field]",
       "descendant_discovery": "not_applicable",
       "export_availability": "not_observed",
       "dom_fallback": null
@@ -70,11 +78,11 @@
       "name": "现金流量表",
       "transport": "xhr_json",
       "method": "GET",
-      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports",
       "request_count": 1,
       "all_periods_in_one_response": true,
-      "unit_location": "data.unit parallel array",
-      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "unit_location": "request unitCode/displayCurrency plus response data.CUCodeUnCast; no data.unit array observed",
+      "value_shape": "data.head/key/level parallel field arrays plus data.value[period][field]",
       "descendant_discovery": "not_applicable",
       "export_availability": "not_observed",
       "dom_fallback": null
@@ -88,7 +96,8 @@
       "all_periods_in_one_response": true,
       "unit_location": "fieldList[].unit and fieldList[].dbUnit",
       "value_shape": "fieldList defines fields and hierarchy; dataList contains reportDate and field-id values",
-      "descendant_discovery": "visible navigation plus pageCode; seven descendants observed",
+      "descendant_discovery": "complete scrolled visible navigation plus pageCode; seven descendants observed",
+      "descendants": ["每股指标", "盈利能力", "偿债能力", "营运能力", "成长能力", "现金流量", "杜邦分析"],
       "export_availability": "not_observed",
       "dom_fallback": null
     },
@@ -101,7 +110,8 @@
       "all_periods_in_one_response": true,
       "unit_location": "encoded in returned header/row metadata when supplied; no separate global unit field observed",
       "value_shape": "data.head fields plus data.value[row][field], data.level and display metadata",
-      "descendant_discovery": "visible navigation and per-module child_type; seventeen data-bearing descendants observed for probe company",
+      "descendant_discovery": "complete scrolled visible navigation and per-module child_type; six descendants observed for probe company",
+      "descendants": ["审计报告", "主营构成", "主要销售客户", "主要供应商", "货币资金", "存货"],
       "export_availability": "not_observed",
       "dom_fallback": null
     }
@@ -110,6 +120,16 @@
   "descendant_loading": "per_module",
   "exports": [],
   "dom_fallbacks": [],
+  "reproducibility": {
+    "fresh_page_repeats": ["资产负债表", "每股指标", "审计报告"],
+    "authoritative_content_hash_equal": true
+  },
+  "period_switching": {
+    "all_observed_authoritative_payloads_contain_multiple_periods": true,
+    "statement_and_analysis_requests_are_parameterized": true,
+    "financial_notes_filter_change_observed": false,
+    "unknown_reason": "the report-type selector did not expose options in the headless probe; the initial payload already contained all displayed periods"
+  },
   "recommended_shape": "direct_json",
   "estimated_product_scope": "small"
 }
