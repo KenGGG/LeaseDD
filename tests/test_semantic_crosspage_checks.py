@@ -52,11 +52,12 @@ def test_crosspage_different_units_or_scopes_do_not_merge():
         assert not any(c['status'] == 'passed' for c in result['checks'])
 
 
-def test_crosspage_balance_conflict_removes_all_involved_values():
-    result = validate_table(*fixture([[('资产总计', 'total_assets', '201')], [('负债合计', 'total_liabilities', '80'), ('所有者权益合计', 'total_equity', '120')]]))
+def test_crosspage_balance_conflict_preserves_all_source_verified_values():
+    result = validate_table(*fixture([[('资产总计', 'total_assets', '202')], [('负债合计', 'total_liabilities', '80'), ('所有者权益合计', 'total_equity', '120')]]))
     assert len(result['statements']) == 1
     assert result['checks'][0]['status'] == 'conflict'
-    assert all(i['normalized_value'] is None and i['evidence']['verification_state'] == 'CONFLICT' for i in result['statements'][0]['items'])
+    assert [i['normalized_value'] for i in result['statements'][0]['items']] == ['202', '80', '120']
+    assert all(i['status'] == 'source_verified' and i['evidence']['verification_state'] == 'VERIFIED' for i in result['statements'][0]['items'])
 
 
 def test_income_total_profit_minus_tax_equals_net_profit():
@@ -69,9 +70,9 @@ def test_income_total_profit_minus_tax_equals_net_profit():
     rows[-1] = ('净利润', 'net_profit', '81')
     result = validate_table(*fixture([rows], 'income_statement'))
     items = {i['concept']: i for i in result['statements'][0]['items']}
-    assert items['net_profit']['normalized_value'] is None
-    assert items['total_profit']['normalized_value'] is None
-    assert items['income_tax_expense']['normalized_value'] is None
+    assert items['net_profit']['normalized_value'] == '81'
+    assert items['total_profit']['normalized_value'] == '100'
+    assert items['income_tax_expense']['normalized_value'] == '20'
     assert items['revenue']['status'] == 'source_verified'
 
 
@@ -95,16 +96,16 @@ def test_missing_fx_does_not_assume_zero_even_when_three_flows_match_net_change(
     rows = [(name, concept, '40' if concept == 'net_increase_in_cash' else '60' if concept == 'ending_cash_balance' else value) for name, concept, value in rows]
     result = validate_table(*fixture([rows], 'cash_flow_statement'))
     check = next(c for c in result['checks'] if c['code'] == 'cash_flows_plus_fx_equal_net_increase')
-    assert check['status'] == 'gap'
+    assert check['status'] == 'not_checked_missing_disclosure'
     assert check['missing_concepts'] == ['exchange_rate_effect']
     assert result['coverage']['status'] == 'partial'
 
 
-def test_cash_flow_conflict_clears_only_involved_evidence_values():
+def test_cash_flow_conflict_preserves_involved_evidence_values():
     rows = cash_rows()
     rows[4] = ('现金净增加额', 'net_increase_in_cash', '50')
     result = validate_table(*fixture([rows], 'cash_flow_statement'))
     check = next(c for c in result['checks'] if c['code'] == 'cash_flows_plus_fx_equal_net_increase')
     assert check['status'] == 'conflict'
     involved = {'net_operating_cash_flow', 'net_investing_cash_flow', 'net_financing_cash_flow', 'exchange_rate_effect', 'net_increase_in_cash'}
-    assert all(i['normalized_value'] is None and i['status'] != 'source_verified' for i in result['statements'][0]['items'] if i['concept'] in involved)
+    assert all(i['normalized_value'] is not None and i['status'] == 'source_verified' for i in result['statements'][0]['items'] if i['concept'] in involved)

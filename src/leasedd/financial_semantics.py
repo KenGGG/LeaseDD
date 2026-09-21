@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from .document_structure import get_cell
 from .finance_extract import FINANCIAL_CONCEPTS,UNIT_SCALES,normalize_period
+from .statement_checks import evaluate_statement_checks
 
 VERSION='agnes-semantic-v1'
 CONCEPTS=FINANCIAL_CONCEPTS|{'cash_and_cash_equivalents','exchange_rate_effect','beginning_cash_balance'}
@@ -289,46 +290,6 @@ def _merge_statement_fragments(fragments):
     return list(grouped.values())
 
 
-def _statement_checks(statement):
-    """Check disclosed terms only, with no default zero for missing inputs."""
-    verified={i['concept']:Decimal(i['normalized_value']) for i in statement['items'] if i['status']=='source_verified' and i['normalized_value'] is not None}
-    checks=[];issues=[]
-    definitions={
-        'balance_sheet':[('assets_equal_liabilities_equity','balance_equation',{'total_assets':1,'total_liabilities':-1,'total_equity':-1})],
-        'income_statement':[('profit_less_tax_equals_net_profit','income_equation',{'total_profit':1,'income_tax_expense':-1,'net_profit':-1})],
-        'cash_flow_statement':[
-            ('cash_flows_plus_fx_equal_net_increase','cash_flow_equation',{'net_operating_cash_flow':1,'net_investing_cash_flow':1,'net_financing_cash_flow':1,'exchange_rate_effect':1,'net_increase_in_cash':-1}),
-            ('opening_cash_plus_change_equals_ending_cash','cash_balance_equation',{'beginning_cash_balance':1,'net_increase_in_cash':1,'ending_cash_balance':-1}),
-        ],
-    }
-    conflicts=[]
-    tolerance=UNIT_SCALES.get(statement['raw_unit'],Decimal(1))*Decimal('0.02')
-    for code,issue_prefix,coefficients in definitions[statement['statement_type']]:
-        missing=sorted(set(coefficients)-verified.keys())
-        check={'code':code,'period':statement['period_normalized'],'scope':statement['scope'],'entity':statement['entity'],'currency':statement['currency'],'missing_concepts':missing}
-        if missing:
-            check.update(status='gap',difference=None)
-            issues.append(issue_prefix+'_gap')
-        else:
-            difference=sum((verified[concept]*coefficient for concept,coefficient in coefficients.items()),Decimal(0))
-            passed=abs(difference)<=tolerance
-            check.update(status='passed' if passed else 'conflict',difference=str(difference))
-            if not passed:
-                reason=issue_prefix+'_conflict'
-                issues.append(reason);conflicts.append((set(coefficients),reason))
-        checks.append(check)
-    # Evaluate all checks from the same verified snapshot, then mark every
-    # conflicting term. A first failure cannot silently suppress a second one.
-    for involved,reason in conflicts:
-        for item in statement['items']:
-            if item['concept'] in involved:
-                item['normalized_value']=None
-                item['status']='pending_confirmation'
-                item['evidence']['verification_state']='CONFLICT'
-                item['evidence']['issues']=list(dict.fromkeys(item['evidence']['issues']+[reason]))
-    statement['issues']=list(dict.fromkeys(statement['issues']+issues))
-    return checks,issues
-
 def validate_table(document,block_ids,metadata,extracted,*,local_statements=None):
     meta=TableUnderstanding.model_validate(metadata);model=TableExtraction.model_validate(extracted)
     blocks=[b for b in document['blocks'] if b['id'] in block_ids and b['kind']=='table']
@@ -448,13 +409,20 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
         s['source_status']='needs_review' if s['source_issues'] else 'consistent'
     checks=[]
     for s in statements:
-        statement_checks,check_issues=_statement_checks(s)
-        checks.extend(statement_checks);allissues.extend(check_issues)
+        statement_checks=evaluate_statement_checks(s)
+        s['checks']=statement_checks
+        statuses={check['status'] for check in statement_checks}
+        s['formula_status']='warning' if 'conflict' in statuses else 'passed' if statuses=={'passed'} else 'not_checked' if not statuses or all(status.startswith('not_checked') for status in statuses) else 'mixed'
+        s['manual_review_required']=False
+        checks.extend(statement_checks)
         verified={i['concept'] for i in s['items'] if i['status']=='source_verified'}
         gaps=['missing_core:'+c for c in sorted(CORE[s['statement_type']]-verified)]
         s['issues']=list(dict.fromkeys(s['issues']+gaps));allissues.extend(gaps)
     bad=any(i['evidence']['verification_state'] in ('CONFLICT','GAP') and i['evidence']['source_number'] is not None for s in statements for i in s['items'])
+    formula_missing=any(check['status']=='not_checked_missing_disclosure'
+                        and len(check['missing_concepts'])==1
+                        for check in checks)
     missing_numeric=set(physical_numbers)-extracted_ids
     if missing_numeric:allissues.append('unextracted_numeric_cells')
-    coverage={'method':VERSION,'tables_found':len(blocks),'tables_parsed':len({c.block_id for c in meta.columns}),'numeric_cells':len(physical_numbers),'extracted_cells':len(extracted_ids),'blank_cells':len(blank_ids),'unreadable_cells':len(unreadable_ids),'missing_numeric_cells':len(missing_numeric),'status':'partial' if missing or allissues or bad else 'complete'}
+    coverage={'method':VERSION,'tables_found':len(blocks),'tables_parsed':len({c.block_id for c in meta.columns}),'numeric_cells':len(physical_numbers),'extracted_cells':len(extracted_ids),'blank_cells':len(blank_ids),'unreadable_cells':len(unreadable_ids),'missing_numeric_cells':len(missing_numeric),'status':'partial' if missing or allissues or bad or formula_missing else 'complete'}
     return {'statements':statements,'missing_rows':list({(r['block_id'],r['row']):r for r in missing}.values()),'issues':list(dict.fromkeys(allissues)),'checks':checks,'coverage':coverage}
