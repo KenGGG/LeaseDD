@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from leasedd.document_structure import build_document_map
-from leasedd.financial_semantics import normalized_period, validate_table
+from leasedd.financial_semantics import TableUnderstanding, normalized_period, validate_table
 
 
 def fixture(header='2025-12-31', prefix=None):
@@ -13,7 +13,7 @@ def fixture(header='2025-12-31', prefix=None):
     block = [b for b in document['blocks'] if b['kind'] == 'table'][-1]
     bid = block['id']
     proof = lambda quote, line=2: {'start_line': line, 'end_line': line, 'quote': quote}
-    metadata = {'statement_type': 'balance_sheet', 'entity': '示例有限公司', 'scope': 'consolidated', 'currency': 'CNY', 'raw_unit': '万元', 'evidence': {'entity': proof('示例有限公司', 1), 'scope': proof('合并报表'), 'currency': proof('人民币'), 'unit': proof('单位：万元'), 'statement_type': proof('合并报表')}, 'columns': [{'block_id': bid, 'column': column, 'label_column': 1, 'header_rows': [1], 'period': period, 'evidence': {'period': proof(label, block['start_line'])}} for column, period, label in [(2, '2025-12-31', header), (3, '2024-12-31', '2024-12-31')]]}
+    metadata = {'statement_type': 'balance_sheet', 'entity': '示例有限公司', 'scope': 'consolidated', 'currency': 'CNY', 'raw_unit': '万元', 'evidence': {'entity': proof('示例有限公司', 1), 'scope': proof('合并报表'), 'currency': proof('人民币'), 'unit': proof('单位：万元'), 'statement_type': proof('合并报表')}, 'columns': [{'block_id': bid, 'column': column, 'label_column': 1, 'header_rows': [1], 'raw_header': label, 'period': period, 'evidence': {'period': proof(label, block['start_line'])}} for column, period, label in [(2, '2025-12-31', header), (3, '2024-12-31', '2024-12-31')]]}
     rows = []
     for row, (name, concept, values) in enumerate([('货币资金', 'cash', ['10', '9']), ('资产总计', 'total_assets', ['200', '150']), ('负债合计', 'total_liabilities', ['80', '50']), ('所有者权益合计', 'total_equity', ['120', '100'])], 2):
         rows.append({'block_id': bid, 'row': row, 'source_name': name, 'concept': concept, 'values': [{'column': column, 'raw_value': value} for column, value in zip([2, 3], values)]})
@@ -98,3 +98,61 @@ def test_out_of_bounds_model_row_is_not_silently_accepted_as_complete():
     rows['rows'].append(extra)
     result = validate_table(document, ids, metadata, rows)
     assert result['coverage']['status'] == 'partial'
+
+
+def test_table_contract_preserves_raw_headers_and_declares_non_amount_columns():
+    _, _, metadata, _ = fixture()
+    for column in metadata['columns']:
+        column['raw_header'] = column['period']
+    metadata['non_amount_columns'] = [{
+        'block_id': metadata['columns'][0]['block_id'],
+        'column': 4,
+        'header_rows': [1],
+        'raw_header': '附注',
+        'kind': 'note_reference',
+        'evidence': {'start_line': 3, 'end_line': 3, 'quote': '附注'},
+    }]
+    parsed = TableUnderstanding.model_validate(metadata)
+    assert parsed.columns[0].raw_header == '2025-12-31'
+    assert parsed.non_amount_columns[0].kind == 'note_reference'
+
+
+def test_validated_note_column_is_not_missing_amount_but_real_amount_still_is():
+    markdown = '# 示例有限公司\n合并资产负债表，币种：人民币，单位：万元\n<table><tr><td>项目</td><td>附注</td><td>2025-12-31</td><td>2024-12-31</td></tr><tr><td>资产总计</td><td>六、1</td><td>200</td><td>150</td></tr></table>'
+    document = build_document_map(markdown)
+    block = next(b for b in document['blocks'] if b['kind'] == 'table')
+    proof = lambda quote, line=2: {'start_line': line, 'end_line': line, 'quote': quote}
+    metadata = {
+        'statement_type': 'balance_sheet', 'entity': '示例有限公司',
+        'scope': 'consolidated', 'currency': 'CNY', 'raw_unit': '万元',
+        'evidence': {'entity': proof('示例有限公司', 1), 'scope': proof('合并资产负债表'),
+                     'currency': proof('人民币'), 'unit': proof('单位：万元'),
+                     'statement_type': proof('合并资产负债表')},
+        'columns': [{'block_id': block['id'], 'column': 3, 'label_column': 1,
+                     'header_rows': [1], 'raw_header': '2025-12-31',
+                     'period': '2025-12-31',
+                     'evidence': {'period': proof('2025-12-31', block['start_line'])}}],
+        'non_amount_columns': [{'block_id': block['id'], 'column': 2,
+                                'header_rows': [1], 'raw_header': '附注',
+                                'kind': 'note_reference',
+                                'evidence': proof('附注', block['start_line'])}],
+    }
+    rows = {'rows': [{'block_id': block['id'], 'row': 2, 'source_name': '资产总计',
+                      'concept': 'total_assets', 'values': [{'column': 3, 'raw_value': '200'}]}]}
+    result = validate_table(document, [block['id']], metadata, rows)
+    assert 'non_amount_column_overlap' not in result['issues']
+    assert 'unmapped_numeric_column' in result['issues']  # column 4 remains a real omitted amount
+
+
+def test_non_amount_column_cannot_overlap_label_or_amount_column():
+    document, ids, metadata, rows = fixture()
+    for column in metadata['columns']:
+        column['raw_header'] = column['period']
+    metadata['non_amount_columns'] = [{
+        'block_id': ids[0], 'column': 2, 'header_rows': [1],
+        'raw_header': '2025-12-31', 'kind': 'other',
+        'evidence': {'start_line': document['blocks'][-1]['start_line'],
+                     'end_line': document['blocks'][-1]['start_line'], 'quote': '2025-12-31'},
+    }]
+    result = validate_table(document, ids, metadata, rows)
+    assert 'non_amount_column_overlap' in result['issues']

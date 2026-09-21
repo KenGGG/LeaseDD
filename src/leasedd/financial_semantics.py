@@ -27,11 +27,19 @@ class ClassifiedTable(Strict):
 class DocumentClassification(Strict):
     tables:list[ClassifiedTable]=Field(max_length=5000)
 EvidenceKey=Literal['entity','scope','currency','unit','statement_type','period']
+class NonAmountColumn(Strict):
+    block_id:str
+    column:int=Field(ge=1,description='原物理表cells.column坐标，使用包含科目列的1-based绝对位置。')
+    header_rows:list[int]=Field(min_length=1,max_length=30)
+    raw_header:str=Field(min_length=1,max_length=500)
+    kind:Literal['note_reference','sequence','other']
+    evidence:Proof
 class SemanticColumn(Strict):
     block_id:str
     column:int=Field(ge=1,description='原物理表cells.column坐标，包含科目列的1-based绝对位置；不得只对数值列从1重新编号。')
     label_column:int=Field(default=1,ge=1,description='科目原文所在列的cells.column坐标，不能与本数值列column相同。')
     header_rows:list[int]=Field(default_factory=lambda:[1],min_length=1,max_length=30)
+    raw_header:str=Field(min_length=1,max_length=500,description='按原表头行顺序逐字返回本金额列的完整表头。')
     period:str=Field(min_length=1,max_length=50)
     period_kind:Literal['instant','year','half_year','quarter','duration']|None=Field(default=None,description='时点 instant；完整年度 year；半年 half_year；季度 quarter；其他起止区间 duration；无法确认 null。')
     period_basis:Literal['opening','closing','duration','unknown']='unknown'
@@ -47,6 +55,7 @@ class TableUnderstanding(Strict):
     raw_unit:str=Field(min_length=1,max_length=20)
     evidence:dict[EvidenceKey,Proof]=Field(description='使用固定键 entity、scope、currency、unit、statement_type，分别给出主体、口径、币种、单位、报表类型的逐字原文证据；无法找到时省略相应键，不编造。')
     columns:list[SemanticColumn]=Field(min_length=1,max_length=200)
+    non_amount_columns:list[NonAmountColumn]=Field(default_factory=list,max_length=100)
 class ModelValue(Strict):
     column:int=Field(ge=1)
     raw_value:str|None=Field(default=None,max_length=100)
@@ -172,6 +181,7 @@ def metadata_issues(document,blocks,meta,column):
     if any(r<1 or r>len(block['rows']) for r in column.header_rows):issues.append('header_invalid')
     header=' '.join(block['rows'][r-1][column.column-1] for r in column.header_rows if 0<r<=len(block['rows']) and column.column<=len(block['rows'][r-1]))
     if not header:issues.append('header_missing')
+    if compact(header)!=compact(column.raw_header):issues.append('raw_header_mismatch')
     try:
         header_period,_=normalized_period(header,None,meta.statement_type)
         if header_period!=period:issues.append('column_period_mismatch')
@@ -195,6 +205,31 @@ def metadata_issues(document,blocks,meta,column):
     return list(dict.fromkeys(issues)),period,kind
 
 
+def non_amount_column_issues(document,blocks,meta):
+    """Validate model-declared note/sequence columns before excluding them."""
+    issues=[];valid=set();seen=set()
+    amount={(c.block_id,c.column) for c in meta.columns}
+    labels={(c.block_id,c.label_column) for c in meta.columns}
+    for column in meta.non_amount_columns:
+        key=(column.block_id,column.column);current=[]
+        if key in seen:current.append('duplicate_non_amount_column')
+        seen.add(key)
+        block=next((b for b in blocks if b['id']==column.block_id),None)
+        if key in amount or key in labels:current.append('non_amount_column_overlap')
+        if not block or not block['rows'] or column.column>max(map(len,block['rows']),default=0):
+            current.append('non_amount_column_invalid')
+        elif any(r<1 or r>len(block['rows']) for r in column.header_rows):
+            current.append('non_amount_header_invalid')
+        else:
+            header=' '.join(block['rows'][r-1][column.column-1] for r in column.header_rows if column.column<=len(block['rows'][r-1]))
+            if compact(header)!=compact(column.raw_header):current.append('non_amount_header_mismatch')
+            proof=proof_text(document,column.evidence,[block])
+            if not proof or compact(proof) not in compact(column.raw_header):current.append('non_amount_evidence_missing')
+        if not current:valid.add(key)
+        issues.extend(current)
+    return list(dict.fromkeys(issues)),valid
+
+
 CORE={
  'balance_sheet':{'total_assets','total_liabilities','total_equity'},
  'income_statement':{'revenue','cost','total_profit','net_profit'},
@@ -202,11 +237,12 @@ CORE={
 }
 
 
-def _physical_numeric_cells(block,columns):
+def _physical_numeric_cells(block,columns,non_amount_columns=frozenset()):
     """Audit original numbers, independently of model omissions and repeats."""
     declared_headers={r for c in columns for r in c.header_rows}
     numbers={};hidden=set();origins={cell['id']:cell['row'] for cell in block['cells']}
     for cell in block['cells']:
+        if (block['id'],cell['column']) in non_amount_columns:continue
         if source_number(cell['text']) is None:continue
         header=cell['row'] in declared_headers
         # Bare calendar years may be header values. Only trust their physical
@@ -297,9 +333,11 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
     duplicate_columns={key for key,count in column_counts.items() if count>1}
     missing=[];statements=[];allissues=[]
     physical_numbers={};hidden_headers={};seen_columns=set();extracted_ids=set();blank_ids=set();unreadable_ids=set()
+    non_amount_issues,validated_non_amount=non_amount_column_issues(document,blocks,meta)
+    allissues.extend(non_amount_issues)
     for b in blocks:
         defined=[c for c in meta.columns if c.block_id==b['id']]
-        numbers,hidden=_physical_numeric_cells(b,defined)
+        numbers,hidden=_physical_numeric_cells(b,defined,validated_non_amount)
         physical_numbers.update(numbers);hidden_headers[b['id']]=hidden
         understood={c.column for c in defined}
         numeric_columns={cell['column'] for cell in numbers.values()}

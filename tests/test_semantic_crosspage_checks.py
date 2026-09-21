@@ -23,7 +23,7 @@ def fixture(groups, statement_type='balance_sheet', units=None, scopes=None):
     for block, group, unit, scope in zip(blocks, groups, units, scopes):
         scope_name = '合并' if scope == 'consolidated' else '母公司'
         evidence = {'entity': proof('示例有限公司', 1), 'scope': proof(scope_name + '报表', block['start_line'] - 1), 'currency': proof('人民币', block['start_line'] - 1), 'unit': proof('单位：' + unit, block['start_line'] - 1), 'statement_type': proof(scope_name + '报表', block['start_line'] - 1), 'period': proof(period, block['start_line'])}
-        columns.append({'block_id': block['id'], 'column': 2, 'label_column': 1, 'header_rows': [1], 'period': period, 'scope': scope, 'raw_unit': unit, 'evidence': evidence})
+        columns.append({'block_id': block['id'], 'column': 2, 'label_column': 1, 'header_rows': [1], 'raw_header': period, 'period': period, 'scope': scope, 'raw_unit': unit, 'evidence': evidence})
         for row, (name, concept, value) in enumerate(group, 2):
             rows.append({'block_id': block['id'], 'row': row, 'source_name': name, 'concept': concept, 'values': [{'column': 2, 'raw_value': value}]})
     meta = {'statement_type': statement_type, 'entity': '示例有限公司', 'scope': scopes[0], 'currency': 'CNY', 'raw_unit': units[0], 'evidence': {}, 'columns': columns}

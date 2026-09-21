@@ -10,7 +10,7 @@ MD='''# 示例集团有限公司
 def fixture():
  d=build_document_map(MD);b=next(b for b in d['blocks'] if b['kind']=='table');bid=b['id']
  proof=lambda q,line=2:{'start_line':line,'end_line':line,'quote':q}
- m={'statement_type':'balance_sheet','entity':'示例集团有限公司','scope':'consolidated','currency':'CNY','raw_unit':'万元','evidence':{'entity':proof('示例集团有限公司',1),'scope':proof('合并报表'),'currency':proof('币种：人民币'),'unit':proof('单位：万元'),'statement_type':proof('合并报表')},'columns':[{'block_id':bid,'column':c,'label_column':1,'header_rows':[1],'period':period,'period_basis':'closing','evidence':{'period':proof(period,3)}} for c,period in [(2,'2025-12-31'),(3,'2024-12-31')]]}
+ m={'statement_type':'balance_sheet','entity':'示例集团有限公司','scope':'consolidated','currency':'CNY','raw_unit':'万元','evidence':{'entity':proof('示例集团有限公司',1),'scope':proof('合并报表'),'currency':proof('币种：人民币'),'unit':proof('单位：万元'),'statement_type':proof('合并报表')},'columns':[{'block_id':bid,'column':c,'label_column':1,'header_rows':[1],'raw_header':period,'period':period,'period_basis':'closing','evidence':{'period':proof(period,3)}} for c,period in [(2,'2025-12-31'),(3,'2024-12-31')]]}
  rows=[]
  for row,(name,concept,values) in enumerate([('货币资金','cash',['125.50','100']),('新型权益项目',None,['20',None]),('资产总计','total_assets',['200','150']),('负债合计','total_liabilities',['80','50']),('所有者权益合计','total_equity',['120','100'])],2):
   rows.append({'block_id':bid,'row':row,'source_name':name,'concept':concept,'values':[{'column':c,'raw_value':v} for c,v in zip([2,3],values)]})
