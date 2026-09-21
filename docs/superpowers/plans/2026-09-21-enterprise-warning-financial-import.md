@@ -33,7 +33,7 @@
 
 ---
 
-### Task A: Probe and document the real 企业预警通 acquisition contract
+### Task 1: Probe and document the real 企业预警通 acquisition contract
 
 **Files:**
 - Create: `tools/qyyjt_probe.py` only if Playwright CLI network inspection cannot export the required response metadata safely.
