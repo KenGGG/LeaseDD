@@ -79,6 +79,17 @@ def test_cached_success_reused_across_worker_restart_and_no_credentials_written(
         assert result['recognition_progress']['completed_stages'] == 1
 
 
+def test_semantic_review_checkpoint_is_reused_after_worker_restart(stage_env):
+    app, _ = stage_env
+    class Success(Model):
+        calls = []
+    stage = 'review:table-key:1:interpret'
+    payload = {'review_reasons': {'source_issues': ['source_value_mismatch'], 'formula_conflicts': []}}
+    expected = caller(app, Success)(stage, payload)
+    assert caller(app, Success)(stage, payload) == expected
+    assert [name for name, _ in Success.calls] == [stage]
+
+
 def test_each_new_signature_uses_a_separate_cache(stage_env):
     app, pipeline = stage_env
     class Success(Model):

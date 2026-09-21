@@ -1,5 +1,5 @@
 from copy import deepcopy
-from leasedd.semantic_pipeline import extract_semantic_financial_data,logical_table_parts
+from leasedd.semantic_pipeline import extract_semantic_financial_data,logical_table_parts,review_reasons,should_review
 from leasedd.document_structure import build_document_map
 from test_financial_semantics import fixture,MD
 
@@ -9,8 +9,9 @@ def model_fixture(omit=False):
  def call(stage,payload):
   calls.append((stage,payload))
   if stage.startswith('map:'):return {'tables':[{'block_ids':ids,'classification':'primary'}]}
+  if ':interpret' in stage and stage.startswith('review:'):return deepcopy(m)
+  if ':extract:' in stage and stage.startswith('review:'):return deepcopy(r)
   if stage.startswith('interpret:'):return deepcopy(m)
-  if stage.startswith('repair:'):return deepcopy(r)
   if stage.startswith('extract:'):return {'rows':deepcopy(r['rows'][:1] if omit else r['rows'])}
   raise AssertionError(stage)
  return call,calls
@@ -26,13 +27,63 @@ def test_authorized_pipeline_never_short_circuits_to_local_parser():
  assert result['manifest']['quality_state']=='passed_with_gaps' # document has only balance sheet
 
 
-def test_missing_rows_trigger_only_target_table_repair():
+def test_missing_rows_trigger_one_logical_table_review():
  call,calls=model_fixture(omit=True);result=extract_semantic_financial_data(MD,call)
  assert len([s for s,_ in calls if s.startswith('map:')])==1
  assert len([s for s,_ in calls if s.startswith('interpret:')])==1
- assert len([s for s,_ in calls if s.startswith('repair:')])==1
+ reviews=[(s,p) for s,p in calls if s.startswith('review:')]
+ assert [s.split(':')[-1] for s,_ in reviews]==['interpret','0']
+ assert reviews[0][1]['review_reasons']['source_issues']
+ assert reviews[0][1]['previous_rows']
  assert result['coverage']['extracted_cells']==9
- assert result['manifest']['repaired_tables']==1
+ assert result['manifest']['semantic_review_count']==1
+ assert result['manifest']['tables'][0]['semantic_review_count']==1
+ assert result['manifest']['tables'][0]['manual_review_required'] is False
+
+
+def test_missing_disclosure_alone_does_not_trigger_review():
+ reasons=review_reasons({'issues':['missing_core:total_equity'],'missing_rows':[],
+                         'statements':[],'checks':[{'status':'not_checked_missing_disclosure'}]})
+ assert reasons=={'source_issues':[],'formula_conflicts':[]}
+ assert should_review(reasons) is False
+
+
+def test_persistent_review_problem_stops_after_one_round():
+ call,calls=model_fixture(omit=True)
+ def still_bad(stage,payload):
+  if stage.startswith('review:') and ':extract:' in stage:
+   _,_,_,rows=fixture();return {'rows':deepcopy(rows['rows'][:1])}
+  return call(stage,payload)
+ result=extract_semantic_financial_data(MD,still_bad)
+ assert len([s for s,_ in calls if s.startswith('review:')])<=2
+ table=result['manifest']['tables'][0]
+ assert table['semantic_review_count']==1
+ assert table['manual_review_required'] is True
+ assert any(s['manual_review_required'] for s in result['statements'])
+
+
+def test_formula_conflict_triggers_one_review_with_difference_and_concepts():
+ d,ids,m,r=fixture();changed=MD.replace('<td>200</td><td>150</td>','<td>202</td><td>150</td>')
+ document=build_document_map(changed);new_id=next(b['id'] for b in document['blocks'] if b['kind']=='table')
+ for column in m['columns']:column['block_id']=new_id
+ for row in r['rows']:
+  row['block_id']=new_id
+  if row['concept']=='total_assets':row['values'][0]['raw_value']='202'
+ calls=[]
+ def conflict(stage,payload):
+  calls.append((stage,payload))
+  if stage.startswith('map:'):return {'tables':[{'block_ids':[new_id],'classification':'primary'}]}
+  if stage.startswith('interpret:') or stage.startswith('review:') and stage.endswith(':interpret'):return deepcopy(m)
+  if stage.startswith('extract:') or stage.startswith('review:') and ':extract:' in stage:return deepcopy(r)
+  raise AssertionError(stage)
+ result=extract_semantic_financial_data(changed,conflict)
+ review_calls=[(stage,payload) for stage,payload in calls if stage.startswith('review:')]
+ assert len(review_calls)==2
+ reasons=review_calls[0][1]['review_reasons']
+ assert reasons['source_issues']==[]
+ assert reasons['formula_conflicts'][0]['difference']=='20000'
+ assert reasons['formula_conflicts'][0]['involved_concepts']==['total_assets','total_liabilities','total_equity']
+ assert result['manifest']['tables'][0]['manual_review_required'] is True
 
 
 def test_invalid_scope_or_provider_failure_preserves_successful_other_tables():
@@ -133,14 +184,14 @@ def test_wrong_metadata_coordinates_are_reinterpreted_before_extracting_rows():
  call,calls=model_fixture();interpretations=[]
  def shifted(stage,payload):
   response=call(stage,payload)
-  if stage.startswith('interpret:'):
+  if stage.startswith('interpret:') or stage.startswith('review:') and stage.endswith(':interpret'):
    interpretations.append(payload)
    if len(interpretations)==1:
     for column in response['columns']:column['column']-=1
   return response
  result=extract_semantic_financial_data(MD,shifted)
  assert len(interpretations)==2
- assert 'column_invalid' in interpretations[1]['validation_issues']
+ assert 'column_invalid' in interpretations[1]['review_reasons']['source_issues']
  assert result['manifest']['counts']['CONFLICT']==0
  assert result['manifest']['counts']['VERIFIED']==8
- assert not any(s.startswith('repair:') for s,p in calls)
+ assert result['manifest']['semantic_review_count']==1
