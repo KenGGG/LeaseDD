@@ -1,0 +1,115 @@
+{
+  "probe_company": "铭普光磁",
+  "search": {
+    "transport": "xhr",
+    "method": "GET",
+    "path_template": "/finchinaAPP/v1/finchina-search/v1/multipleSearch",
+    "request_parameters": [
+      "isRelationSearch",
+      "pagesize",
+      "skip",
+      "template",
+      "text",
+      "type"
+    ],
+    "candidate_fields": [
+      "code",
+      "name",
+      "type",
+      "stock",
+      "symbol",
+      "market",
+      "status",
+      "socialCreditCode",
+      "url",
+      "jumpAddress"
+    ],
+    "multiple_candidate_behavior": "response data.list contains zero or more ranked candidates"
+  },
+  "categories": [
+    {
+      "name": "主要财务指标",
+      "transport": "xhr_json",
+      "method": "GET",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "data.unit parallel array",
+      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "descendant_discovery": "not_applicable",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    },
+    {
+      "name": "资产负债表",
+      "transport": "xhr_json",
+      "method": "GET",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "data.unit parallel array",
+      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "descendant_discovery": "not_applicable",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    },
+    {
+      "name": "利润表",
+      "transport": "xhr_json",
+      "method": "GET",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "data.unit parallel array",
+      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "descendant_discovery": "not_applicable",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    },
+    {
+      "name": "现金流量表",
+      "transport": "xhr_json",
+      "method": "GET",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndicators",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "data.unit parallel array",
+      "value_shape": "data.head/key/unit/level parallel field arrays plus data.value[period][field]",
+      "descendant_discovery": "not_applicable",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    },
+    {
+      "name": "财务分析",
+      "transport": "xhr_json",
+      "method": "POST",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/table/header-and-data",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "fieldList[].unit and fieldList[].dbUnit",
+      "value_shape": "fieldList defines fields and hierarchy; dataList contains reportDate and field-id values",
+      "descendant_discovery": "visible navigation plus pageCode; seven descendants observed",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    },
+    {
+      "name": "财务附注",
+      "transport": "xhr_json",
+      "method": "GET",
+      "path_template": "/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data",
+      "request_count": 1,
+      "all_periods_in_one_response": true,
+      "unit_location": "encoded in returned header/row metadata when supplied; no separate global unit field observed",
+      "value_shape": "data.head fields plus data.value[row][field], data.level and display metadata",
+      "descendant_discovery": "visible navigation and per-module child_type; seventeen data-bearing descendants observed for probe company",
+      "export_availability": "not_observed",
+      "dom_fallback": null
+    }
+  ],
+  "history_loading": "single_response",
+  "descendant_loading": "per_module",
+  "exports": [],
+  "dom_fallbacks": [],
+  "recommended_shape": "direct_json",
+  "estimated_product_scope": "small"
+}
