@@ -111,6 +111,15 @@ class CreateProject(Contract):
     writer_id: str
     reviewer_id: str
 
+class EnterpriseImportRequest(Contract):
+    query: str | None = Field(default=None,min_length=1,max_length=200)
+    company_code: str | None = Field(default=None,min_length=1,max_length=100)
+    company_name: str | None = Field(default=None,min_length=1,max_length=200)
+    @model_validator(mode='after')
+    def valid_choice(self):
+        if self.company_code and not self.company_name:raise ValueError('company_name_required')
+        return self
+
 class CreateTask(Contract):
     kind: Literal['generate','render','extract_finance']
     mode: Literal['synthetic','agnes','auto'] = 'synthetic'

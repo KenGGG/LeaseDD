@@ -15,6 +15,7 @@ dependencies = [
     "httpx>=0.28,<0.29",
     "alembic>=1.15,<2",
     "markitdown[docx,xlsx]>=0.1.6,<0.2",
+    "playwright>=1.50,<2",
 ]
 [dependency-groups]
 dev = ["pytest>=8,<9", "playwright>=1.50,<2"]

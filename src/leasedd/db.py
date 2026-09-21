@@ -35,6 +35,47 @@ class Project(Base):
     section_revision: Mapped[int] = mapped_column(Integer, default=0)
     production_template_status: Mapped[str] = mapped_column(String(30), default='missing')
 
+class EnterpriseBinding(Base):
+    __tablename__ = 'enterprise_bindings'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey('projects.id'), unique=True)
+    company_code: Mapped[str] = mapped_column(String(100))
+    company_name: Mapped[str] = mapped_column(String(200))
+    identity: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_by: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    created_at: Mapped[float] = mapped_column(Float)
+
+class EnterpriseImport(Base):
+    __tablename__ = 'enterprise_imports'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey('projects.id'))
+    task_id: Mapped[str] = mapped_column(ForeignKey('tasks.id'), unique=True)
+    state: Mapped[str] = mapped_column(String(30))
+    quality_state: Mapped[str] = mapped_column(String(30))
+    module_status: Mapped[dict] = mapped_column(JSON, default=dict)
+    error: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    started_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+class EnterpriseFinancialData(Base):
+    __tablename__ = 'enterprise_financial_data'
+    __table_args__ = (UniqueConstraint('import_id', 'module_key'),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    import_id: Mapped[str] = mapped_column(ForeignKey('enterprise_imports.id'))
+    category: Mapped[str] = mapped_column(String(50))
+    module_key: Mapped[str] = mapped_column(String(100))
+    module_name: Mapped[str] = mapped_column(String(200))
+    module_order: Mapped[int] = mapped_column(Integer)
+    endpoint_path: Mapped[str] = mapped_column(Text)
+    request_params: Mapped[dict] = mapped_column(JSON, default=dict)
+    raw_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    parsed_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    response_sha256: Mapped[str] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(30))
+    error: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    collected_at: Mapped[float] = mapped_column(Float)
+
 class Member(Base):
     __tablename__ = 'members'
     __table_args__ = (UniqueConstraint('project_id', 'user_id'),)
