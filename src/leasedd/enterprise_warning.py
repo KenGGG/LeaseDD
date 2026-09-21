@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
+from urllib.parse import parse_qs, urlparse
 
 
 SEARCH_ENDPOINT = "/finchinaAPP/v1/finchina-search/v1/multipleSearch"
@@ -15,6 +16,25 @@ REPORT_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeRe
 ANALYSIS_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/table/header-and-data"
 NOTES_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data"
 FINANCIAL_CATEGORIES = {"indicators", "statements", "analysis", "notes"}
+MODULES = (
+    ("main_indicators", "主要财务指标", "indicators", MAIN_ENDPOINT, "Fin.Statement_MainInDicators", {}),
+    ("balance_sheet", "资产负债表", "statements", REPORT_ENDPOINT, "Fin.Statement_Liabilities", {"statement_type": "balance_sheet"}),
+    ("income_statement", "利润表", "statements", REPORT_ENDPOINT, "Fin.Statement_ProfitTable", {"statement_type": "income_statement"}),
+    ("cash_flow_statement", "现金流量表", "statements", REPORT_ENDPOINT, "Fin.Statement_CashFlow", {"statement_type": "cash_flow_statement"}),
+    ("per_share", "每股指标", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_PerIndex", {}),
+    ("profitability", "盈利能力", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_Earning", {}),
+    ("solvency", "偿债能力", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_SolvencyAbility", {}),
+    ("operation", "营运能力", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_Operation", {}),
+    ("growth", "成长能力", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_GrowthAbility", {}),
+    ("cash_analysis", "现金流量", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_CashFlow", {}),
+    ("dupont", "杜邦分析", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_DuPont", {}),
+    ("audit_report", "审计报告", "notes", NOTES_ENDPOINT, "Fin.Notes_AuditRep", {}),
+    ("main_business", "主营构成", "notes", NOTES_ENDPOINT, "Operation_MainBusinessComposition", {}),
+    ("major_customers", "主要销售客户", "notes", NOTES_ENDPOINT, "Fin.Notes_MainCustomers", {}),
+    ("major_suppliers", "主要供应商", "notes", NOTES_ENDPOINT, "Fin.Notes_MainSuppliers", {}),
+    ("cash_notes", "货币资金", "notes", NOTES_ENDPOINT, "Fin.Notes_Cash", {}),
+    ("inventory_notes", "存货", "notes", NOTES_ENDPOINT, "Fin.Notes_Inventory", {}),
+)
 
 
 class EnterpriseWarningError(RuntimeError):
@@ -153,13 +173,17 @@ class QyjCollector:
         self.session_factory = session_factory or _PlaywrightSession
 
     @staticmethod
-    def _one(responses: list[tuple[str, dict[str, Any]]], endpoint: str) -> dict[str, Any]:
+    def _match(responses: list[tuple[str, dict[str, Any]]], endpoint: str) -> tuple[str, dict[str, Any]]:
         matched = [payload for url, payload in responses if endpoint in url]
         if not matched and any("login" in url.lower() for url, _ in responses):
             raise EnterpriseWarningError("login_expired")
-        if len(matched) != 1:
+        if not matched:
             raise EnterpriseWarningError("structure_changed")
-        return matched[0]
+        return next((item for item in reversed(responses) if endpoint in item[0]))
+
+    @classmethod
+    def _one(cls, responses: list[tuple[str, dict[str, Any]]], endpoint: str) -> dict[str, Any]:
+        return cls._match(responses, endpoint)[1]
 
     def search(self, name: str) -> list[EnterpriseCandidate]:
         session = self.session_factory()
@@ -188,9 +212,14 @@ class QyjCollector:
     def collect_module(self, company_code: str, module: EnterpriseModule) -> CollectedModule:
         session = self.session_factory()
         try:
-            raw = self._one(session.perform("collect", company_code=company_code, module=module), module.endpoint_path)
-            parsed = _parser(module)(raw)
-            return CollectedModule(module, raw, parsed, _hash(raw))
+            url, raw = self._match(session.perform("collect", company_code=company_code, module=module), module.endpoint_path)
+            query = {key: values if len(values) > 1 else values[0] for key, values in parse_qs(urlparse(url).query).items()}
+            params = {**module.request_params, **query}
+            if params.get("unitCode") == "4": params["unit"] = "万元"
+            if params.get("mergeRange") == "1": params["mergeRange"] = "consolidated"
+            collected_module = replace(module, request_params=params)
+            parsed = _parser(collected_module)(raw)
+            return CollectedModule(collected_module, raw, parsed, _hash(raw))
         finally:
             session.close()
 
@@ -229,24 +258,43 @@ class _PlaywrightSession:
         if action == "search":
             def run():
                 self.page.goto(self.base, wait_until="domcontentloaded")
-                box = self.page.locator("input[placeholder*='企业'], input[placeholder*='公司']").first
+                trigger = self.page.locator("input[readonly][placeholder*='公司']").first
+                if trigger.count():
+                    trigger.click()
+                box = self.page.locator("input:not([readonly])[placeholder*='企业']").last
                 box.fill(kwargs["name"])
-                box.press("Enter")
             return self._capture(run)
         if action == "collect":
             module = kwargs["module"]
             def run():
                 self.page.goto(f"{self.base}/detail/enterprise/financialStatements?code={kwargs['company_code']}&type=company", wait_until="domcontentloaded")
-                self.page.get_by_text(module.name, exact=True).first.click()
+                if module.category in ("analysis", "notes"):
+                    self.page.get_by_text("财务分析" if module.category == "analysis" else "财务附注", exact=True).click(force=True)
+                    if module.category == "notes" and module.key not in ("audit_report", "main_business"):
+                        self.page.locator(".ant-tree-list-holder").evaluate_all("els => els.forEach(e => e.scrollTop = e.scrollHeight)")
+                        self.page.wait_for_timeout(500)
+                item = self.page.locator(".pro-menu-item").filter(has_text=module.name).first
+                if item.count():
+                    item.click(force=True)
+                else:
+                    self.page.get_by_text(module.name, exact=True).first.click(force=True)
             return self._capture(run)
         raise EnterpriseWarningError("structure_changed")
 
     def menu(self, company_code: str) -> list[dict[str, Any]]:
         self.page.goto(f"{self.base}/detail/enterprise/financialStatements?code={company_code}&type=company", wait_until="domcontentloaded")
-        return self.page.evaluate("""() => Array.from(document.querySelectorAll('[data-module-key]')).map((node) => ({
-          key: node.dataset.moduleKey, name: node.textContent.trim(), category: node.dataset.category,
-          endpoint: node.dataset.endpoint, params: node.dataset.params ? JSON.parse(node.dataset.params) : {}
-        }))""")
+        self.page.get_by_text("主要财务指标", exact=True).first.wait_for(timeout=15_000)
+        seen = {name for _, name, *_ in MODULES if self.page.get_by_text(name, exact=True).count()}
+        for group in ("财务分析", "财务附注"):
+            self.page.get_by_text(group, exact=True).click(force=True)
+            self.page.locator(".ant-tree-list-holder").evaluate_all("els => els.forEach(e => e.scrollTop = e.scrollHeight)")
+            self.page.wait_for_timeout(800)
+            seen.update(name for _, name, *_ in MODULES if self.page.get_by_text(name, exact=True).count())
+        items = []
+        for order, (key, name, category, endpoint, trace, params) in enumerate(MODULES):
+            items.append({"key": key, "name": name, "category": category, "endpoint": endpoint,
+                          "params": params, "order": order, "trace": trace})
+        return items
 
     def close(self):
         self._context.close()
