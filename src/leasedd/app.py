@@ -292,6 +292,13 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
             if legacy_docs:conditions.append((FinancialStatement.run_id==None)&FinancialStatement.document_id.in_(legacy_docs))
             from sqlalchemy import or_
             statements=db.scalars(select(FinancialStatement).where(FinancialStatement.project_id==pid,or_(*conditions)).order_by(FinancialStatement.entity,FinancialStatement.statement_type,FinancialStatement.period)).all() if conditions else []
+        diagnostic_indexes={}
+        for run in active_runs.values():
+            index={}
+            for table in (run.manifest or {}).get('tables',[]):
+                for diagnostic in table.get('statement_diagnostics',[]):
+                    if diagnostic.get('statement_key'):index[diagnostic['statement_key']]=diagnostic
+            diagnostic_indexes[run.id]=index
         layouts={};result=[]
         for s in statements:
             if s.conversion_id not in layouts:
@@ -303,7 +310,18 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
                 if len(matches)==1:
                     value.update({k:v for k,v in matches[0].items() if k!='source_start_line'})
                 items.append(value)
-            result.append({'id':s.id,'run_id':s.run_id,'document_id':s.document_id,'conversion_id':s.conversion_id,'statement_type':s.statement_type,'entity':s.entity,'scope':s.scope,'period':s.period,'period_normalized':s.period_normalized,'period_kind':s.period_kind,'currency':s.currency,'raw_unit':s.raw_unit,'unit_scale':s.unit_scale,'state':s.state,'issues':s.issues,'items':items})
+            key=next((item.get('evidence',{}).get('statement_key') for item in items if item.get('evidence',{}).get('statement_key')),None)
+            diagnostic=diagnostic_indexes.get(s.run_id,{}).get(key,{})
+            checks=[]
+            for raw in diagnostic.get('checks',[]):
+                check=dict(raw)
+                involved=set(check.get('involved_concepts',[]))
+                check['item_ids']=[item['id'] for item in items if item['concept'] in involved]
+                checks.append(check)
+            result.append({'id':s.id,'run_id':s.run_id,'document_id':s.document_id,'conversion_id':s.conversion_id,'statement_type':s.statement_type,'entity':s.entity,'scope':s.scope,'period':s.period,'period_normalized':s.period_normalized,'period_kind':s.period_kind,'currency':s.currency,'raw_unit':s.raw_unit,'unit_scale':s.unit_scale,'state':s.state,'issues':s.issues,'items':items,
+                'source_status':diagnostic.get('source_status','not_available'),'source_issues':diagnostic.get('source_issues',[]),
+                'formula_status':diagnostic.get('formula_status','not_checked'),'checks':checks,
+                'semantic_review_count':diagnostic.get('semantic_review_count',0),'manual_review_required':diagnostic.get('manual_review_required',False)})
         result=[align_balance_period(s) for s in result]
         from .financial_supplements import supplementary_statements
         for cid in layouts:

@@ -1,6 +1,13 @@
 import type {FinancialItem, FinancialStatement} from './api';
 
 export const statementLabels = {balance_sheet:'资产负债表',income_statement:'利润表',cash_flow_statement:'现金流量表'};
+export function diagnosticSummary(statements:FinancialStatement[]){
+ const labels:string[]=[];
+ if(statements.some(s=>s.source_status==='needs_review'))labels.push('来源待核对');
+ if(statements.some(s=>(s.checks||[]).some(c=>c.status==='conflict')))labels.push((statementLabels[statements[0]?.statement_type]||'报表')+'勾稽不一致');
+ if(statements.some(s=>(s.checks||[]).some(c=>c.status==='not_checked_missing_disclosure')))labels.push('缺少披露项，未检查');
+ return labels;
+}
 export const scopeLabels:Record<string,string> = {consolidated:'合并报表',parent:'母公司报表',standalone:'单体报表',unknown:'口径待核对'};
 export const statusLabels:Record<string,string> = {source_verified:'来源已核验 · 待人审',pending_confirmation:'待核对',human_confirmed:'人工已确认',human_rejected:'已拒绝',source_value_not_found:'来源未验证'};
 type CatalogRow={concept:string;label:string;section:string;total:boolean};

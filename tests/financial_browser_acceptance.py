@@ -26,7 +26,9 @@ def add(period,kind='balance_sheet',scope='consolidated',currency='CNY',entity='
   item.update(source_order=index,source_section='原表科目',source_cells=[item['source_name'],item['raw_value'],'80'],source_headers=['项目','本期','上期'])
  return statement
 for year in range(2025,2019,-1):
- add(f'{year}-12-31',items=[('cash','货币资金',str((year-2015)*100000),'source_verified'),('inventory','存货','0','source_verified'),('total_current_assets','流动资产合计','2800000','source_verified'),('fixed_assets','固定资产','5000000','pending_confirmation'),('total_assets','资产总计','7800000','source_verified'),('short_term_borrowings','短期借款','1000000','source_verified'),('total_liabilities','负债合计','3500000','source_verified'),('total_equity','所有者权益合计','4300000','source_verified')])
+ current=add(f'{year}-12-31',items=[('cash','货币资金',str((year-2015)*100000),'source_verified'),('inventory','存货','0','source_verified'),('total_current_assets','流动资产合计','2800000','source_verified'),('fixed_assets','固定资产','5000000','pending_confirmation'),('total_assets','资产总计','7800000','source_verified'),('short_term_borrowings','短期借款','1000000','source_verified'),('total_liabilities','负债合计','3500000','source_verified'),('total_equity','所有者权益合计','4300000','source_verified')])
+ if year==2025:
+  current.update(source_status='consistent',source_issues=[],formula_status='warning',semantic_review_count=1,manual_review_required=True,checks=[{'code':'assets_equal_liabilities_equity','status':'conflict','difference':'10000','tolerance':'0','missing_concepts':[],'involved_concepts':['total_assets','total_liabilities','total_equity'],'item_ids':[current['items'][4]['id'],current['items'][6]['id'],current['items'][7]['id']]}])
 add('2025-12-31',items=[('inventory','存货','1','source_verified')])
 add('2025-12-31',scope='parent',items=[('cash','货币资金','9990000','source_verified')])
 add('2025-12-31',currency='USD',items=[('cash','货币资金','8880000','source_verified')])
@@ -73,6 +75,10 @@ with sync_playwright() as pw:
  expect(table.get_by_role('button',name='货币资金 2025年年报 100.00',exact=True)).to_be_visible()
  expect(table.get_by_role('button',name='存货 2025年年报 存在冲突',exact=True)).to_be_visible()
  expect(table.get_by_role('button',name='存货 2024年年报 0.00',exact=True)).to_be_visible()
+ expect(page.get_by_text('资产负债表勾稽不一致',exact=True)).to_be_visible()
+ page.get_by_text('资产负债表勾稽不一致',exact=True).click()
+ expect(page.locator('.finance-diagnostics')).to_contain_text('差额 10000')
+ expect(table.get_by_role('button',name='资产总计 2025年年报 780.00',exact=True)).to_be_visible()
  expect(table).not_to_contain_text('999.00')
  page.screenshot(path=str(OUT/'balance-sheet.png'),full_page=True)
  page.get_by_text('核对筛选',exact=True).click()
@@ -139,6 +145,6 @@ with sync_playwright() as pw:
  expect(page.get_by_label('财务核对理由')).to_have_count(0)
  assert source_requests and not errors,errors
  browser.close()
-result={'status':'passed','data':'synthetic API fixtures; no customer writes or model calls','checks':['multi-period matrix','zero vs missing','conflicts','unit precision','source drilldown','confirmation refresh','filtering','scope isolation','three statements','CSV provenance','mobile overflow','reviewer controls'],'page_errors':errors}
+result={'status':'passed','data':'synthetic API fixtures; no customer writes or model calls','checks':['multi-period matrix','zero vs missing','conflicts','source/formula diagnostics preserve values','unit precision','source drilldown','confirmation refresh','filtering','scope isolation','three statements','CSV provenance','mobile overflow','reviewer controls'],'page_errors':errors}
 (OUT/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
 print(json.dumps(result,ensure_ascii=False))

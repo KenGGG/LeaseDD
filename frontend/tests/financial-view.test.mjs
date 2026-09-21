@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildMatrix, cellState, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
+import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
@@ -110,4 +110,12 @@ test('supplement-only periods do not create empty duplicate statement columns',(
  assert.equal(m.rows[0].cells[0][0].statement.period,'2023-01-01');
  const restated=statement('closing','2022-12-31',[item('closing','101')]);
  assert.equal(cellState(buildMatrix([opening,restated],{group:groupKey(opening),type:'balance_sheet',hideEmpty:true}).rows[0].cells[0]).kind,'conflict');
+});
+
+test('source and formula diagnostics are separate and never suppress values',()=>{
+ const conflict=statement('diag','2025-12-31',[item('cash','100')],{source_status:'consistent',source_issues:[],formula_status:'warning',checks:[{code:'assets_equal_liabilities_equity',status:'conflict',difference:'1',tolerance:'0',missing_concepts:[],involved_concepts:['total_assets'],item_ids:[]}],semantic_review_count:1,manual_review_required:true});
+ assert.deepEqual(diagnosticSummary([conflict]),['资产负债表勾稽不一致']);
+ assert.equal(cellState([{statement:conflict,item:conflict.items[0]}]).value,'100');
+ const missing={...conflict,source_status:'needs_review',checks:[{...conflict.checks[0],status:'not_checked_missing_disclosure',missing_concepts:['total_equity']}]};
+ assert.deepEqual(diagnosticSummary([missing]),['来源待核对','缺少披露项，未检查']);
 });

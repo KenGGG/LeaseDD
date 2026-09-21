@@ -9,6 +9,7 @@
 .finance-nav p{font-size:12px;line-height:1.9;color:var(--muted);margin:24px 12px}
 .finance-content{min-width:0}
 .finance-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px;border-bottom:1px solid var(--border)}
+.finance-diagnostics{margin:10px 20px;padding:10px 12px;border:1px solid #e6b35c;border-radius:8px;background:#fff8e8}.finance-diagnostics summary{cursor:pointer;font-weight:700}.finance-diagnostics div{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}.finance-diagnostics span{color:#6b5a3a}
 .finance-heading h2{font-size:18px;line-height:1.5}
 .finance-heading p{font-size:13px;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
 .finance-filters{display:flex;flex-wrap:wrap;gap:12px;padding:16px 20px 10px}

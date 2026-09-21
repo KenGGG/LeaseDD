@@ -134,6 +134,14 @@ def _result_summary(result):
             'checks':result.get('checks',[]),'coverage':result.get('coverage',{})}
 
 
+def statement_key(table_id, statement):
+    header=statement.get('raw_header') or ''
+    qualifier=next((value for value in ('调整前','调整后') if value in header),'')
+    identity=[table_id]+[statement.get(key) for key in
+        ('statement_type','entity','scope','currency','raw_unit','period_kind','period_normalized')]+[qualifier]
+    return hashlib.sha256(json.dumps(identity,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()[:24]
+
+
 def extract_semantic_financial_data(markdown,model_call,*,local_statements=None,progress=None):
     document=build_document_map(markdown)
     errors=[];groups=[];classifications={};tables=[];statements=[];semantic_reviews=0;requests=0
@@ -225,12 +233,15 @@ def extract_semantic_financial_data(markdown,model_call,*,local_statements=None,
             remaining=review_reasons(result)
             manual_review_required=should_review(remaining)
             for s in result['statements']:
+                s['statement_key']=statement_key(gid,s)
                 s['semantic_review_count']=review_count
                 s['manual_review_required']=manual_review_required
                 for i in s['items']:
+                    i['evidence']['statement_key']=s['statement_key']
                     i['verification_state']=i['evidence']['verification_state'];i['mapping_state']=i['evidence']['mapping_state']
             statements.extend(result['statements'])
-            tables.append({'table_id':gid,'block_ids':group,'metadata':meta,'issues':result['issues'],'missing_rows':result['missing_rows'],'checks':result['checks'],'coverage':result['coverage'],'semantic_review_count':review_count,'manual_review_required':manual_review_required,'review_initial':initial_summary,'review_final':_result_summary(result)})
+            statement_diagnostics=[{key:s.get(key) for key in ('statement_key','source_status','source_issues','formula_status','checks','semantic_review_count','manual_review_required')} for s in result['statements']]
+            tables.append({'table_id':gid,'block_ids':group,'metadata':meta,'issues':result['issues'],'missing_rows':result['missing_rows'],'checks':result['checks'],'coverage':result['coverage'],'semantic_review_count':review_count,'manual_review_required':manual_review_required,'statement_diagnostics':statement_diagnostics,'review_initial':initial_summary,'review_final':_result_summary(result)})
             for key in ('tables_found','tables_parsed','numeric_cells','extracted_cells','blank_cells','unreadable_cells'):coverage[key]+=result['coverage'][key]
         except (RuntimeError,ValueError) as e:errors.append({'stage':'table','table_id':gid,'code':_safe_error(e)})
     counts=Counter(i['verification_state'] for s in statements for i in s['items'])

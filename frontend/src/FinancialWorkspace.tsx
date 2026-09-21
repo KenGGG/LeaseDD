@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {Download,Search,X,FileText} from 'lucide-react';
 import {api} from './api';
 import type {Doc,FinancialStatement} from './api';
-import {buildMatrix,cellState,formatCellAmount,groupKey,scopeLabels,statementLabels,statusLabels,toCsv,unitPowers} from './financial-view';
+import {buildMatrix,cellState,diagnosticSummary,formatCellAmount,groupKey,scopeLabels,statementLabels,statusLabels,toCsv,unitPowers} from './financial-view';
 import type {Candidate} from './financial-view';
 import './financial.css';
 import FinancialInsights from './FinancialInsights';
@@ -24,6 +24,8 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
  const group=groups.some(([key])=>key===selectedGroup)?selectedGroup:groups[0]?.[0]||'';
  const selected=groups.find(([key])=>key===group)?.[1];
  const matrix=buildMatrix(statements,{group,type:type==='metrics'||type==='analysis'||type==='notes'?'balance_sheet':type,hideEmpty,report,startYear,endYear,descending,query,rowOrder,review});
+ const diagnosticStatements=statements.filter(s=>groupKey(s)===group&&s.statement_type===type);
+ const diagnosticLabels=diagnosticSummary(diagnosticStatements);
  const years=[...new Set(statements.filter(s=>groupKey(s)===group).map(s=>(s.period_normalized||s.period).slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
  const docName=(id:string)=>docs.find(d=>d.id===id)?.name||id;
  const chosenRow=matrix.rows.find(r=>r.concept===selection?.concept);
@@ -51,6 +53,7 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
   <section className="finance-content">
    {type==='metrics'||type==='analysis'?<FinancialInsights pid={pid} statements={statements} mode={type} category={analysisCategory} onEvidence={(ids,title)=>setInsightSelection({ids,title})}>{children}</FinancialInsights>:type==='notes'?<FinancialNotes pid={pid} docs={docs} category={notesCategory}/>:<>
     <div className="finance-heading"><div><h2>{statementLabels[type as FinancialStatement['statement_type']]}</h2><p>{selected?.entity||'上传资料后查看财务数据'}{selected&&<span> · {scopeLabels[selected.scope]||selected.scope} · {selected.currency==='CNY'?'人民币':selected.currency}</span>}</p></div><button className="button secondary" disabled={!matrix.periods.length} onClick={exportCsv}><Download size={14}/>导出 CSV</button></div>
+    {!!diagnosticLabels.length&&<details className="finance-diagnostics"><summary>{diagnosticLabels.join('；')}</summary>{diagnosticStatements.flatMap(s=>(s.checks||[]).filter(c=>c.status!=='passed').map(c=><div key={s.id+c.code}><strong>{c.status==='conflict'?'勾稽不一致':c.status==='not_checked_missing_disclosure'?'缺少披露项，未检查':'来源未核实，未检查'}</strong>{c.difference!==null&&<span>差额 {c.difference}；容差 {c.tolerance}</span>}{c.missing_concepts.length>0&&<span>缺少：{c.missing_concepts.join('、')}</span>}{!!c.item_ids?.length&&<button className="button secondary" onClick={()=>setInsightSelection({ids:c.item_ids||[],title:'勾稽检查相关来源'})}>查看相关来源</button>}</div>))}</details>}
     {statements.length===0?<div className="finance-empty"><FileText size={32}/><h3>还没有识别出的财务报表</h3><p>在“资料与证据”上传材料，勾选允许 Agnes 提取财务数据，再点击“批量识别”。处理完成后，各期数据会在这里横向对齐。</p></div>:<>
      <div className="finance-filters">
       <label className="finance-group">主体 / 口径 / 币种<select aria-label="财务主体口径" value={group} onChange={e=>{setSelectedGroup(e.target.value);setStartYear('');setEndYear('')}}>{groups.map(([key,s])=><option key={key} value={key}>{s.entity} · {scopeLabels[s.scope]||s.scope} · {s.currency}{s.scope==='unknown'?' · '+docName(s.document_id):''}</option>)}</select></label>
