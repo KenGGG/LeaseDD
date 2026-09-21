@@ -156,6 +156,8 @@ def test_non_amount_column_cannot_overlap_label_or_amount_column():
     }]
     result = validate_table(document, ids, metadata, rows)
     assert 'non_amount_column_overlap' in result['issues']
+    assert all(statement['source_status'] == 'needs_review' for statement in result['statements'])
+    assert all('non_amount_column_overlap' in statement['source_issues'] for statement in result['statements'])
 
 
 def test_adjusted_opening_and_closing_columns_never_merge_by_normalized_date():

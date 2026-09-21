@@ -21,8 +21,13 @@ def test_unknown_rows_and_blank_values_survive_with_exact_cell_evidence():
  assert len(result['statements'])==2
  s=result['statements'][0];cash=s['items'][0]
  assert cash['normalized_value']=='1255000.00'
+ assert cash['raw_value']=='125.50'
  assert cash['evidence']['cell']['column']==2
+ assert cash['evidence']['source_decimal_places']==2
+ assert cash['evidence']['source_increment']=='0.01'
  assert cash['evidence']['verification_state']=='VERIFIED'
+ assert s['source_status']=='consistent'
+ assert s['source_issues']==[]
  unknown=next(i for i in s['items'] if i['source_name']=='新型权益项目')
  assert unknown['concept'].startswith('disclosed_')
  assert unknown['evidence']['mapping_state']=='unmapped'
@@ -51,8 +56,12 @@ def test_semantic_local_disagreement_is_preserved_without_trusting_either():
  d,ids,m,r=fixture()
  local=[{'statement_type':'balance_sheet','scope':'consolidated','entity':'示例集团有限公司','currency':'CNY','period_normalized':'2025-12-31','items':[{'concept':'cash','source_name':'货币资金','source_start_line':3,'normalized_value':'999','raw_value':'999','raw_unit':'万元'}]}]
  result=validate_table(d,ids,m,r,local_statements=local)
- i=result['statements'][0]['items'][0];assert i['normalized_value'] is None
- assert i['evidence']['verification_state']=='CONFLICT'
+ i=result['statements'][0]['items'][0];assert i['normalized_value']=='1255000.00'
+ assert i['evidence']['verification_state']=='VERIFIED'
+ assert i['status']=='source_verified'
+ assert result['statements'][0]['source_status']=='consistent'
+ assert 'local_disagreement' in i['evidence']['issues']
+ assert i['evidence']['agreement']=='source_only'
  assert i['evidence']['local_candidates'][0]['value']=='999'
 
 

@@ -87,6 +87,14 @@ def source_number(value):
     return -v if neg else v
 
 
+def disclosed_precision(raw):
+    value=compact(raw)
+    if source_number(value) is None:return None
+    fraction=value.strip('()').replace(',','').partition('.')[2]
+    places=len(fraction)
+    return places,Decimal(1).scaleb(-places)
+
+
 def normalized_period(raw,kind,statement_type):
     value=compact(raw)
     explicit=re.fullmatch(r'(\d{4})年(\d{1,2})月(\d{1,2})日(?:\((?:调整前|调整后)\))?',value)
@@ -357,7 +365,7 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
         if (column.block_id,column.label_column) in column_counts:issues.append('label_column_is_value_column')
         block=next(b for b in blocks if b['id']==column.block_id)
         entity=column.entity or meta.entity;scope=column.scope or meta.scope;unit=column.raw_unit or meta.raw_unit
-        statement={'statement_type':meta.statement_type,'entity':entity,'scope':scope,'period':column.period,'raw_header':column.raw_header,'period_normalized':period,'period_kind':kind,'currency':meta.currency,'raw_unit':unit,'unit_scale':str(UNIT_SCALES[unit]) if unit in UNIT_SCALES else None,'source_start_line':block['start_line'],'source_end_line':block['end_line'],'state':'candidate','issues':issues.copy(),'items':[]}
+        statement={'statement_type':meta.statement_type,'entity':entity,'scope':scope,'period':column.period,'raw_header':column.raw_header,'period_normalized':period,'period_kind':kind,'currency':meta.currency,'raw_unit':unit,'unit_scale':str(UNIT_SCALES[unit]) if unit in UNIT_SCALES else None,'source_start_line':block['start_line'],'source_end_line':block['end_line'],'state':'candidate','issues':list(dict.fromkeys(issues+non_amount_issues)),'items':[]}
         for row_index,grid_row in enumerate(block['rows'],1):
             if row_index in column.header_rows:continue
             try:source=get_cell(document,column.block_id,row_index,column.column);name=get_cell(document,column.block_id,row_index,column.label_column)
@@ -401,11 +409,13 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
                     local.append({'concept':i['concept'],'value':i.get('normalized_value'),'scope':s.get('scope'),'entity':s.get('entity'),'currency':s.get('currency')})
                     if (s.get('scope')!=scope or s.get('entity')!=entity or s.get('currency')!=meta.currency or source_number(i.get('normalized_value'))!=normalized or i['concept']!=concept and not i['concept'].startswith('disclosed_')):item_issues.append('local_disagreement')
             item_issues=list(dict.fromkeys(item_issues))
-            conflict=any(x in item_issues for x in ('source_value_mismatch','source_name_mismatch','local_disagreement','duplicate_model_row'))
-            state='CONFLICT' if conflict else 'GAP' if item_issues else 'UNMAPPED' if not mapped else 'VERIFIED'
+            source_item_issues=[x for x in item_issues if x!='local_disagreement']
+            conflict=any(x in source_item_issues for x in ('source_value_mismatch','source_name_mismatch','duplicate_model_row'))
+            state='CONFLICT' if conflict else 'GAP' if source_item_issues else 'UNMAPPED' if not mapped else 'VERIFIED'
             status='source_verified' if state=='VERIFIED' else 'pending_confirmation' if state in ('CONFLICT','UNMAPPED') else 'source_value_not_found'
             safe_value=format(normalized,'f') if normalized is not None and state in ('VERIFIED','UNMAPPED') else None
-            evidence={'pipeline_version':VERSION,'verification_state':state,'mapping_state':'mapped' if mapped else 'unmapped','model_concept':row.concept,'model_raw_value':supplied[0].raw_value if supplied else None,'cell':{k:source[k] for k in ('id','block_id','row','column','start_line','end_line')},'source_number':format(value,'f') if value is not None else None,'source_normalized_value':format(normalized,'f') if normalized is not None else None,'local_candidates':local,'agreement':'source_and_local' if local and state=='VERIFIED' else 'source_only','issues':item_issues}
+            precision=disclosed_precision(raw)
+            evidence={'pipeline_version':VERSION,'verification_state':state,'mapping_state':'mapped' if mapped else 'unmapped','model_concept':row.concept,'model_raw_value':supplied[0].raw_value if supplied else None,'cell':{k:source[k] for k in ('id','block_id','row','column','start_line','end_line')},'source_number':format(value,'f') if value is not None else None,'source_normalized_value':format(normalized,'f') if normalized is not None else None,'source_decimal_places':precision[0] if precision else None,'source_increment':format(precision[1],'f') if precision else None,'local_candidates':local,'agreement':'source_and_local' if local and 'local_disagreement' not in item_issues and state=='VERIFIED' else 'source_only','issues':item_issues}
             statement['items'].append({'concept':concept,'source_name':source_name,'raw_value':raw[:100],'raw_unit':item_unit,'normalized_value':safe_value,'source_text':source['raw'],'source_start_line':source['start_line'],'source_end_line':source['end_line'],'status':status,'evidence':evidence})
             if value is not None:extracted_ids.add(source['id'])
         allissues.extend(statement['issues'])
@@ -430,6 +440,12 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
         if len({Decimal(i['normalized_value']) for i in values})>1:
             for i in values:i['normalized_value']=None;i['status']='pending_confirmation';i['evidence']['verification_state']='CONFLICT';i['evidence']['issues'].append('duplicate_concept_conflict')
             allissues.append('duplicate_concept_conflict')
+    for s in statements:
+        direct=list(s['issues'])
+        for item in s['items']:
+            direct.extend(issue for issue in item['evidence']['issues'] if issue!='local_disagreement')
+        s['source_issues']=list(dict.fromkeys(direct))
+        s['source_status']='needs_review' if s['source_issues'] else 'consistent'
     checks=[]
     for s in statements:
         statement_checks,check_issues=_statement_checks(s)
