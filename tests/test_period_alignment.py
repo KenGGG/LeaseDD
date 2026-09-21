@@ -1,5 +1,6 @@
 from leasedd.finance_extract import validate_extracted_statement
 from leasedd.financial_presentation import align_balance_period
+from leasedd.financial_semantics import normalized_period
 from leasedd.financial_notes import index_notes, notes_matrix
 
 
@@ -16,6 +17,20 @@ def test_alignment_never_relabels_flow_periods_or_arbitrary_dates():
     for kind,date in [('income_statement','2023-01-01'),('cash_flow_statement','2023-01-01'),('balance_sheet','2023-06-01')]:
         original=dict(statement_type=kind,period=date,period_normalized=date,period_kind='instant')
         assert align_balance_period(original)==original
+
+
+def test_chinese_period_ranges_preserve_cumulative_and_single_quarter_bounds():
+    assert normalized_period('2025年1—3月','quarter','income_statement')==('2025-01-01/2025-03-31','quarter')
+    assert normalized_period('2025年7—9月','quarter','income_statement')==('2025-07-01/2025-09-30','quarter')
+    assert normalized_period('2025年1—6月','half_year','cash_flow_statement')==('2025-01-01/2025-06-30','half_year')
+    assert normalized_period('2025年半年度','half_year','income_statement')==('2025-01-01/2025-06-30','half_year')
+    assert normalized_period('2025年1至3月',None,'income_statement')!=normalized_period('2025年7到9月',None,'income_statement')
+
+
+def test_adjusted_opening_balance_is_not_relabelled_as_prior_closing():
+    original={'statement_type':'balance_sheet','period':'2025年1月1日（调整前）',
+              'period_normalized':'2025-01-01','period_kind':'instant'}
+    assert align_balance_period(original)==original
 
 
 def test_inner_numbered_heading_does_not_remove_notes_scope():

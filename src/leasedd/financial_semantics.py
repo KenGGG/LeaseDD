@@ -89,7 +89,7 @@ def source_number(value):
 
 def normalized_period(raw,kind,statement_type):
     value=compact(raw)
-    explicit=re.fullmatch(r'(\d{4})年(\d{1,2})月(\d{1,2})日',value)
+    explicit=re.fullmatch(r'(\d{4})年(\d{1,2})月(\d{1,2})日(?:\((?:调整前|调整后)\))?',value)
     if explicit:value=date(*map(int,explicit.groups())).isoformat()
     if '/' in value:
         start,end=value.split('/',1);a,b=date.fromisoformat(start),date.fromisoformat(end)
@@ -259,7 +259,9 @@ def _merge_statement_fragments(fragments):
     """Link only compatible columns; retain every physical evidence item."""
     grouped={}
     for fragment in fragments:
-        key=tuple(fragment[k] for k in ('statement_type','entity','scope','currency','period_kind','raw_unit'))+(fragment['period_normalized'] or fragment['period'],)
+        header=compact(fragment.get('raw_header') or fragment['period'])
+        qualifier=next((q for q in ('调整前','调整后') if q in header),'')
+        key=tuple(fragment[k] for k in ('statement_type','entity','scope','currency','period_kind','raw_unit'))+(fragment['period_normalized'] or fragment['period'],qualifier)
         source_blocks=list(dict.fromkeys(i['evidence']['cell']['block_id'] for i in fragment['items']))
         if fragment['issues']:
             # Contradictory or unproven metadata cannot borrow the grouping of
@@ -355,7 +357,7 @@ def validate_table(document,block_ids,metadata,extracted,*,local_statements=None
         if (column.block_id,column.label_column) in column_counts:issues.append('label_column_is_value_column')
         block=next(b for b in blocks if b['id']==column.block_id)
         entity=column.entity or meta.entity;scope=column.scope or meta.scope;unit=column.raw_unit or meta.raw_unit
-        statement={'statement_type':meta.statement_type,'entity':entity,'scope':scope,'period':column.period,'period_normalized':period,'period_kind':kind,'currency':meta.currency,'raw_unit':unit,'unit_scale':str(UNIT_SCALES[unit]) if unit in UNIT_SCALES else None,'source_start_line':block['start_line'],'source_end_line':block['end_line'],'state':'candidate','issues':issues.copy(),'items':[]}
+        statement={'statement_type':meta.statement_type,'entity':entity,'scope':scope,'period':column.period,'raw_header':column.raw_header,'period_normalized':period,'period_kind':kind,'currency':meta.currency,'raw_unit':unit,'unit_scale':str(UNIT_SCALES[unit]) if unit in UNIT_SCALES else None,'source_start_line':block['start_line'],'source_end_line':block['end_line'],'state':'candidate','issues':issues.copy(),'items':[]}
         for row_index,grid_row in enumerate(block['rows'],1):
             if row_index in column.header_rows:continue
             try:source=get_cell(document,column.block_id,row_index,column.column);name=get_cell(document,column.block_id,row_index,column.label_column)

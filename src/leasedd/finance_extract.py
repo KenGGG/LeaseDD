@@ -1,4 +1,5 @@
 import re
+from calendar import monthrange
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -103,10 +104,24 @@ def _decimal_text(value: Decimal) -> str:
 
 def normalize_period(value: str, statement_type: str = '') -> tuple[str, str] | None:
     value = value.strip().upper()
-    match = re.fullmatch(r"(\d{4})H1", value) or re.fullmatch(r"(\d{4})年1[-—至]6月", value)
+    match = re.fullmatch(r"(\d{4})H1", value) or re.fullmatch(r"(\d{4})年(?:1[-—–至到]6月|半年度)", value)
     if match:
         year = match.group(1)
         return f"{year}-01-01/{year}-06-30", "half_year"
+    match = re.fullmatch(r"(\d{4})年(\d{1,2})[-—–至到](\d{1,2})月", value)
+    if match:
+        year_text, start_text, end_text = match.groups()
+        year, start, end = int(year_text), int(start_text), int(end_text)
+        if not 1 <= start <= end <= 12:
+            return None
+        period_kind = "duration"
+        if (start, end) == (1, 12):
+            period_kind = "year"
+        elif (start, end) == (1, 6):
+            period_kind = "half_year"
+        elif (start, end) in ((1, 3), (4, 6), (7, 9), (10, 12)):
+            period_kind = "quarter"
+        return f"{year:04d}-{start:02d}-01/{year:04d}-{end:02d}-{monthrange(year, end)[1]:02d}", period_kind
     match = re.fullmatch(r"(\d{4})Q([1-4])", value)
     if match:
         year, quarter = match.groups()

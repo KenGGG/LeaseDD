@@ -10,6 +10,9 @@ def align_balance_period(statement):
     """
     from .finance_extract import normalize_period
     period = statement.get('period_normalized') or statement.get('period', '')
+    raw_period = statement.get('period', '')
+    if '调整前' in raw_period or '调整后' in raw_period:
+        return statement
     if statement.get('statement_type') != 'balance_sheet' or not period.endswith('-01-01') or '/' in period:
         return statement
     normalized = normalize_period(period, 'balance_sheet')

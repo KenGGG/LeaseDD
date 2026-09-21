@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 
 from leasedd.document_structure import build_document_map
-from leasedd.financial_semantics import TableUnderstanding, normalized_period, validate_table
+from leasedd.financial_semantics import TableUnderstanding, _merge_statement_fragments, normalized_period, validate_table
 
 
 def fixture(header='2025-12-31', prefix=None):
@@ -156,3 +156,19 @@ def test_non_amount_column_cannot_overlap_label_or_amount_column():
     }]
     result = validate_table(document, ids, metadata, rows)
     assert 'non_amount_column_overlap' in result['issues']
+
+
+def test_adjusted_opening_and_closing_columns_never_merge_by_normalized_date():
+    def fragment(period, raw_header, value):
+        return {'statement_type': 'balance_sheet', 'entity': '示例有限公司',
+                'scope': 'consolidated', 'currency': 'CNY', 'period_kind': 'instant',
+                'raw_unit': '万元', 'period': period, 'period_normalized': '2024-12-31',
+                'raw_header': raw_header, 'issues': [], 'source_start_line': 1,
+                'source_end_line': 1,
+                'items': [{'normalized_value': value,
+                           'evidence': {'cell': {'block_id': raw_header}}}]}
+    result = _merge_statement_fragments([
+        fragment('2025年1月1日（调整前）', '2025年1月1日（调整前）', '100'),
+        fragment('2024年12月31日（调整后）', '2024年12月31日（调整后）', '101'),
+    ])
+    assert len(result) == 2
