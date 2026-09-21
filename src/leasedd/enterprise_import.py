@@ -52,7 +52,11 @@ def _has_warning(parsed):
 
 
 def run_enterprise_import(app, task_id, lease_token):
-    collector = app.state.enterprise_collector
+    collector = getattr(app.state, "enterprise_collector", None)
+    if collector is None:
+        from .enterprise_warning import QyjCollector
+        collector = QyjCollector()
+        app.state.enterprise_collector = collector
     with app.state.db() as db:
         task = db.get(Task, task_id)
         record = db.get(EnterpriseImport, task.result["import_id"])
