@@ -23,8 +23,11 @@ CHECKS = {
 
 def _verified(item):
     evidence=item.get('evidence') or {}
-    return (item.get('status')=='source_verified' and evidence.get('mapping_state')=='mapped'
-            and item.get('normalized_value') is not None and evidence.get('source_increment') is not None)
+    verified=(item.get('status')=='source_verified' and evidence.get('mapping_state')=='mapped'
+              and item.get('normalized_value') is not None and evidence.get('source_increment') is not None)
+    if evidence.get('response_sha256') is not None:
+        verified=verified and all(evidence.get(key) is not None for key in ('module_key','row','period_column'))
+    return verified
 
 
 def _tolerance(item):

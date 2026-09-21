@@ -4,9 +4,9 @@ from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy import select, delete
-from .db import Base, database, User, LoginSession, Project, Member, Document, DocumentConversion, ExtractionRun, FinancialStatement, FinancialItem, FactBatch, Task, Export, Audit, Setting, SectionRevision, uid
+from .db import Base, database, User, LoginSession, Project, Member, Document, DocumentConversion, ExtractionRun, FinancialStatement, FinancialItem, FactBatch, Task, Export, Audit, Setting, SectionRevision, EnterpriseBinding, EnterpriseImport, EnterpriseFinancialData, uid
 from .security import password_hash, verify_password, token_hash
-from .contracts import Login, CreateUser, CreateProject, FactImport, CreateTask, BatchRecognition, SectionEdit, AgnesSettings, FinancialItemDecision
+from .contracts import Login, CreateUser, CreateProject, FactImport, CreateTask, BatchRecognition, SectionEdit, AgnesSettings, FinancialItemDecision, EnterpriseImportRequest
 from .domain import facts_snapshot, snapshot_hash, calculate, validate_draft, metric_display
 
 MAX_FILE=20*1024*1024
@@ -270,10 +270,86 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
     def financial_item_view(item):
         return {'id':item.id,'concept':item.concept,'source_name':item.source_name,'raw_value':item.raw_value,'raw_unit':item.raw_unit,'normalized_value':item.normalized_value,'source_text':item.source_text,'source_start_line':item.source_start_line,'source_end_line':item.source_end_line,'status':item.status,'evidence':item.evidence or {},'confirmed_by':item.confirmed_by,'confirmed_at':item.confirmed_at,'confirmation_reason':item.confirmation_reason}
 
+    def latest_enterprise_import(db,pid,readable=False):
+        query=select(EnterpriseImport).where(EnterpriseImport.project_id==pid)
+        if readable:query=query.where(EnterpriseImport.state.in_(['completed','partial']))
+        return db.scalar(query.order_by(EnterpriseImport.completed_at.desc(),EnterpriseImport.started_at.desc()))
+
+    def enterprise_status_view(db,pid):
+        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        record=latest_enterprise_import(db,pid)
+        return {'source_type':'enterprise_warning' if binding else None,
+                'binding':None if not binding else {'company_code':binding.company_code,'company_name':binding.company_name,'identity':binding.identity},
+                'import':None if not record else {'id':record.id,'state':record.state,'quality_state':record.quality_state,
+                    'module_status':record.module_status,'content_sha256':record.content_sha256,'started_at':record.started_at,'completed_at':record.completed_at}}
+
+    @app.get('/api/projects/{pid}/enterprise')
+    def enterprise_status(pid:str,user=Depends(current),db=Depends(session)):
+        project(db,pid,user)
+        return enterprise_status_view(db,pid)
+
+    @app.post('/api/projects/{pid}/enterprise/import')
+    def enterprise_import(pid:str,payload:EnterpriseImportRequest,user=Depends(admin),db=Depends(session)):
+        admin(user);p=project(db,pid,user,write=True,lock=True)
+        collector=getattr(app.state,'enterprise_collector',None)
+        if collector is None:
+            from .enterprise_warning import QyjCollector
+            collector=QyjCollector();app.state.enterprise_collector=collector
+        if not payload.company_code:
+            candidates=collector.search(payload.query or p.name)
+            return {'candidates':[{'code':item.code,'name':item.name,'identity':item.identity} for item in candidates]}
+        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        if not binding:
+            binding=EnterpriseBinding(project_id=pid,company_code=payload.company_code,company_name=payload.company_name,
+                                      identity={},created_by=user.id,created_at=time.time());db.add(binding);db.flush()
+        else:
+            binding.company_code=payload.company_code;binding.company_name=payload.company_name
+        audit(db,user,'bind_enterprise',pid,{'company_code':payload.company_code})
+        from .enterprise_import import enqueue_enterprise_import
+        task,_=enqueue_enterprise_import(db,p,binding,user)
+        audit(db,user,'enqueue_enterprise_import',pid,{'task_id':task.id});db.commit()
+        return task_view(task)
+
+    @app.post('/api/projects/{pid}/enterprise/retry')
+    def enterprise_retry(pid:str,user=Depends(admin),db=Depends(session)):
+        admin(user);p=project(db,pid,user,write=True,lock=True)
+        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        record=latest_enterprise_import(db,pid)
+        if not binding or not record:raise HTTPException(409,'enterprise_import_missing')
+        failed=[key for key,value in (record.module_status or {}).items() if value.get('state')=='failed']
+        if not failed:
+            previous=db.get(Task,record.task_id)
+            failed=list((previous.result or {}).get('failed_modules',[])) if previous else []
+        if not failed:raise HTTPException(409,'enterprise_import_has_no_failures')
+        from .enterprise_import import enqueue_enterprise_import
+        task,_=enqueue_enterprise_import(db,p,binding,user,failed_modules=failed)
+        audit(db,user,'retry_enterprise_import',pid,{'task_id':task.id,'modules':failed});db.commit()
+        return task_view(task)
+
+    @app.get('/api/projects/{pid}/enterprise/data')
+    def enterprise_data(pid:str,category:str|None=None,module_key:str|None=None,user=Depends(current),db=Depends(session)):
+        project(db,pid,user);record=latest_enterprise_import(db,pid,readable=True)
+        if not record:return {'import_id':None,'modules':[]}
+        query=select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id==record.id)
+        if category:query=query.where(EnterpriseFinancialData.category==category)
+        if module_key:query=query.where(EnterpriseFinancialData.module_key==module_key)
+        rows=db.scalars(query.order_by(EnterpriseFinancialData.module_order)).all()
+        return {'import_id':record.id,'modules':[{'category':row.category,'module_key':row.module_key,'module_name':row.module_name,
+            'module_order':row.module_order,'endpoint_path':row.endpoint_path,'request_params':row.request_params,
+            'raw_payload':row.raw_payload,'parsed_payload':row.parsed_payload,'response_sha256':row.response_sha256,
+            'state':row.state,'error':row.error,'collected_at':row.collected_at} for row in rows]}
+
     @app.get('/api/projects/{pid}/financial-statements')
     def financial_statements(pid:str,run_id:str='',user=Depends(current),db=Depends(session)):
         from .financial_presentation import source_layout, align_balance_period
         project(db,pid,user)
+        if not run_id:
+            binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+            record=latest_enterprise_import(db,pid,readable=True) if binding else None
+            if record:
+                from .enterprise_views import enterprise_statement_views
+                rows=db.scalars(select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id==record.id,EnterpriseFinancialData.category=='statements').order_by(EnterpriseFinancialData.module_order)).all()
+                return enterprise_statement_views(record,rows)
         if run_id:
             run=db.get(ExtractionRun,run_id)
             if not run or run.project_id!=pid:raise HTTPException(404,'financial_extraction_not_found')
