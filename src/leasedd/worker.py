@@ -175,8 +175,19 @@ def run_once(app):
     try:
         with app.state.db() as db:
             t=db.get(Task,tid);p=db.get(Project,t.project_id)
-            if t.kind!='extract_finance' and (t.input_revision!=p.revision or t.input_hash!=snapshot_hash(db,p)):raise TaskError('stale_task_input')
+            if t.kind not in ('extract_finance','enterprise_import') and (t.input_revision!=p.revision or t.input_hash!=snapshot_hash(db,p)):raise TaskError('stale_task_input')
             kind=t.kind
+        if kind=='enterprise_import':
+            from .enterprise_import import run_enterprise_import
+            result=run_enterprise_import(app,tid,lease)
+            with app.state.db.begin() as db:
+                task_project=db.scalar(select(Task.project_id).where(Task.id==tid))
+                db.scalar(select(Project).where(Project.id==task_project).with_for_update())
+                t=db.scalar(select(Task).where(Task.id==tid).with_for_update())
+                require_active_lease(t,lease)
+                t.state='completed';t.result={**(t.result or {}),**result};t.reason=None;t.lease_until=0
+                db.add(Audit(project_id=t.project_id,user_id=t.created_by,action='task_completed',details={'task_id':tid,'kind':kind},created_at=time.time()))
+            return True
         if kind=='extract_finance':
             result=run_finance_extraction(app,tid,lease)
             with app.state.db.begin() as db:
