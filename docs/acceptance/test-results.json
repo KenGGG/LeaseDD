@@ -13,6 +13,19 @@
   "framework_version": "synthetic-v1",
   "template_sha256": "e87c979d65b0e49c6d5618db8884925464d08bd19203731b926e8ac3b0124cd7",
   "python_version": "3.12.3",
+  "m2_three_statement": {
+    "date": "2026-09-21",
+    "commit": "90a7089327c2b02545c6ac18c781a312f96ab41a",
+    "automatic_markdown_verification": "reported separately",
+    "human_pdf_confirmation": "not established by automated tests",
+    "runs": [
+      {"command": "uv run pytest -q", "passed": 226, "failed": 0, "skipped": 3, "warnings": 1, "artifact": "runtime/acceptance/m2-three-statement/pytest.txt", "sha256": "a45dda616d2f7d50e7e52993ac53ced04cd4c092e30a154774188b5506f708b5"},
+      {"command": "npm --prefix frontend test", "passed": 13, "failed": 0, "artifact": "runtime/acceptance/m2-three-statement/frontend-test.txt", "sha256": "cc35a9245d20d64cab509aa852e2ce84d6e581f63746320b5375069d31fc4e65"},
+      {"command": "npm --prefix frontend run build", "status": "passed", "artifact": "runtime/acceptance/m2-three-statement/frontend-build.txt", "sha256": "d906242a69d471740d23e8eb925ee7b3ec9e1883dbc3b41b75bfe8033a9f430f"},
+      {"command": "uv run python tests/financial_browser_acceptance.py", "status": "passed", "business_writes": 0, "page_errors": []},
+      {"command": "uv run python tests/ui_readability_browser.py", "status": "passed", "business_writes": 0, "page_errors": []}
+    ]
+  },
   "runs": [
     {
       "command": ".venv/bin/python -m pytest -q",
