@@ -1,3 +1,4 @@
+from dataclasses import replace
 from types import SimpleNamespace
 
 from sqlalchemy import func, select
@@ -37,7 +38,8 @@ class FakeCollector:
         parsed = {"periods": ["2025-12-31"], "rows": []}
         if self.warning and module.key == "module-0":
             parsed["checks"] = [{"status": "conflict"}]
-        return CollectedModule(module, {"data": {"key": module.key}}, parsed, f"{module.order:064x}")
+        collected_module = replace(module, request_params={"unit": "万元", "source": "xhr"})
+        return CollectedModule(collected_module, {"data": {"key": module.key}}, parsed, f"{module.order:064x}")
 
 
 def seeded(tmp_path, collector):
@@ -66,6 +68,8 @@ def test_worker_imports_all_modules_without_agnes(tmp_path):
         assert record.quality_state == "passed"
         assert len(record.content_sha256) == 64
         assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 17
+        row = db.scalar(select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id))
+        assert row.request_params == {"unit": "万元", "source": "xhr"}
     assert collector.collected == [f"module-{index}" for index in range(17)]
 
 

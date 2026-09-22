@@ -64,7 +64,7 @@ def acceptance_result(db, project, binding, record, elapsed):
             "pdf_agnes_elapsed_seconds": None, "failed_modules": failed, "agnes_calls": 0}
 
 
-def import_company(app, name, creator, members):
+def import_company(app, name, creator, members, *, refresh_all=False):
     collector = app.state.enterprise_collector
     resume = None
     with app.state.db() as db:
@@ -73,10 +73,10 @@ def import_company(app, name, creator, members):
         record = db.scalar(select(EnterpriseImport).where(EnterpriseImport.project_id == existing.id, EnterpriseImport.state.in_(("completed", "partial"))).order_by(EnterpriseImport.completed_at.desc())) if existing else None
         if binding and record:
             count = len(list(db.scalars(select(EnterpriseFinancialData.id).where(EnterpriseFinancialData.import_id == record.id))))
-            if count == 17:
+            if count == 17 and not refresh_all:
                 return acceptance_result(db, existing, binding, record, round((record.completed_at or 0) - (record.started_at or 0), 3))
             resume = (binding.company_code, binding.company_name, binding.identity,
-                      [key for key, value in (record.module_status or {}).items() if value.get("state") == "failed"])
+                      None if refresh_all else [key for key, value in (record.module_status or {}).items() if value.get("state") == "failed"])
     if resume:
         from leasedd.enterprise_warning import EnterpriseCandidate
         candidate = EnterpriseCandidate(resume[0], resume[1], resume[2]); failed_modules = resume[3]
@@ -113,6 +113,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--companies", nargs="+", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--refresh-all", action="store_true")
     args = parser.parse_args()
     if set(args.companies) - APPROVED or len(args.companies) != 4:
         raise SystemExit("only_the_four_approved_companies_are_allowed")
@@ -124,7 +125,7 @@ def main():
         if not creator:
             raise RuntimeError("writer_missing")
         db.expunge(creator)
-    results = [import_company(app, name, creator, members) for name in args.companies]
+    results = [import_company(app, name, creator, members, refresh_all=args.refresh_all) for name in args.companies]
     payload = {"companies": results, "enterprise_median_seconds": statistics.median(item["enterprise_elapsed_seconds"] for item in results),
                "pdf_agnes_median_seconds": None, "speed_comparison": "unproven_without_comparable_pdf_timing",
                "scope": "Only the four approved companies and the current 企业预警通 version."}

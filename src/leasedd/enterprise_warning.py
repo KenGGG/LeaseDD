@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
@@ -15,6 +16,7 @@ MAIN_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getMainIndic
 REPORT_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports"
 ANALYSIS_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/table/header-and-data"
 NOTES_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data"
+MAIN_BUSINESS_ENDPOINT = "/getData.action"
 FINANCIAL_CATEGORIES = {"indicators", "statements", "analysis", "notes"}
 MODULES = (
     ("main_indicators", "主要财务指标", "indicators", MAIN_ENDPOINT, "Fin.Statement_MainInDicators", {}),
@@ -29,7 +31,7 @@ MODULES = (
     ("cash_analysis", "现金流量", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_CashFlow", {}),
     ("dupont", "杜邦分析", "analysis", ANALYSIS_ENDPOINT, "Fin.Analysis_DuPont", {}),
     ("audit_report", "审计报告", "notes", NOTES_ENDPOINT, "Fin.Notes_AuditRep", {}),
-    ("main_business", "主营构成", "notes", NOTES_ENDPOINT, "Operation_MainBusinessComposition", {}),
+    ("main_business", "主营构成", "notes", MAIN_BUSINESS_ENDPOINT, "Operation_MainBusinessComposition", {}),
     ("major_customers", "主要销售客户", "notes", NOTES_ENDPOINT, "Fin.Notes_MainCustomers", {}),
     ("major_suppliers", "主要供应商", "notes", NOTES_ENDPOINT, "Fin.Notes_MainSuppliers", {}),
     ("cash_notes", "货币资金", "notes", NOTES_ENDPOINT, "Fin.Notes_Cash", {}),
@@ -151,12 +153,18 @@ def parse_notes(payload: dict[str, Any]) -> dict[str, Any]:
             "metadata": {key: value for key, value in data.items() if key not in ("head", "value")}}
 
 
+def parse_main_business(payload: dict[str, Any]) -> dict[str, Any]:
+    return _parse_matrix(payload, units=True)
+
+
 def _hash(payload: dict[str, Any]) -> str:
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _parser(module: EnterpriseModule) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    if module.key == "main_business":
+        return parse_main_business
     if module.endpoint_path.endswith("getMainIndicators"):
         return parse_main_indicators
     if module.endpoint_path.endswith("getThreeReports"):
@@ -173,13 +181,19 @@ class QyjCollector:
         self.session_factory = session_factory or _PlaywrightSession
 
     @staticmethod
-    def _match(responses: list[tuple[str, dict[str, Any]]], endpoint: str) -> tuple[str, dict[str, Any]]:
-        matched = [payload for url, payload in responses if endpoint in url]
-        if not matched and any("login" in url.lower() for url, _ in responses):
+    def _parts(item: tuple) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        url, payload, *rest = item
+        return url, payload, (rest[0] if rest and isinstance(rest[0], dict) else {})
+
+    @classmethod
+    def _match(cls, responses: list[tuple], endpoint: str) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        normalized = [cls._parts(item) for item in responses]
+        matched = [item for item in normalized if endpoint in item[0]]
+        if not matched and any("login" in url.lower() for url, _, _ in normalized):
             raise EnterpriseWarningError("login_expired")
         if not matched:
             raise EnterpriseWarningError("structure_changed")
-        return next((item for item in reversed(responses) if endpoint in item[0]))
+        return matched[-1]
 
     @classmethod
     def _one(cls, responses: list[tuple[str, dict[str, Any]]], endpoint: str) -> dict[str, Any]:
@@ -212,9 +226,18 @@ class QyjCollector:
     def collect_module(self, company_code: str, module: EnterpriseModule) -> CollectedModule:
         session = self.session_factory()
         try:
-            url, raw = self._match(session.perform("collect", company_code=company_code, module=module), module.endpoint_path)
+            responses = session.perform("collect", company_code=company_code, module=module)
+            if module.key == "main_business":
+                candidates = [self._parts(item) for item in responses if module.endpoint_path in item[0]
+                              and isinstance(item[1].get("data"), dict)
+                              and all(key in item[1]["data"] for key in ("head", "key", "value"))]
+                if not candidates:
+                    raise EnterpriseWarningError("structure_changed")
+                url, raw, captured_params = candidates[-1]
+            else:
+                url, raw, captured_params = self._match(responses, module.endpoint_path)
             query = {key: values if len(values) > 1 else values[0] for key, values in parse_qs(urlparse(url).query).items()}
-            params = {**module.request_params, **query}
+            params = {**module.request_params, **captured_params, **query}
             if params.get("unitCode") == "4": params["unit"] = "万元"
             if params.get("mergeRange") == "1": params["mergeRange"] = "consolidated"
             collected_module = replace(module, request_params=params)
@@ -240,17 +263,24 @@ class _PlaywrightSession:
         self.page = self._context.pages[0] if self._context.pages else self._context.new_page()
         self.base = os.getenv("QYJ_BASE_URL", "https://www.qyyjt.cn")
 
-    def _capture(self, action: Callable[[], None]) -> list[tuple[str, dict[str, Any]]]:
+    def _capture(self, action: Callable[[], None], *, wait_ms: int = 1500) -> list[tuple]:
         captured = []
         def record(response):
             try:
-                if "finchinaAPP" in response.url or "login" in response.url.lower():
-                    captured.append((response.url, response.json()))
+                if "finchinaAPP" in response.url or "getData.action" in response.url or "login" in response.url.lower():
+                    query = {key: values if len(values) > 1 else values[0]
+                             for key, values in parse_qs(urlparse(response.url).query).items()}
+                    try:
+                        post_data = response.request.post_data_json
+                    except Exception:
+                        post_data = None
+                    params = {**(post_data if isinstance(post_data, dict) else {}), **query}
+                    captured.append((response.url, response.json(), params))
             except Exception:
                 pass
         self.page.on("response", record)
         action()
-        self.page.wait_for_timeout(1500)
+        self.page.wait_for_timeout(wait_ms)
         self.page.remove_listener("response", record)
         return captured
 
@@ -270,15 +300,20 @@ class _PlaywrightSession:
                 self.page.goto(f"{self.base}/detail/enterprise/financialStatements?code={kwargs['company_code']}&type=company", wait_until="domcontentloaded")
                 if module.category in ("analysis", "notes"):
                     self.page.get_by_text("财务分析" if module.category == "analysis" else "财务附注", exact=True).click(force=True)
-                    if module.category == "notes" and module.key not in ("audit_report", "main_business"):
+                    self.page.wait_for_timeout(500)
+                    exact_name = re.compile(f"^{re.escape(module.name)}$")
+                    item = self.page.locator(".pro-menu-item").filter(has_text=exact_name)
+                    if module.category == "notes" and not item.count():
                         self.page.locator(".ant-tree-list-holder").evaluate_all("els => els.forEach(e => e.scrollTop = e.scrollHeight)")
                         self.page.wait_for_timeout(500)
-                item = self.page.locator(".pro-menu-item").filter(has_text=module.name).first
+                else:
+                    exact_name = re.compile(f"^{re.escape(module.name)}$")
+                item = self.page.locator(".pro-menu-item").filter(has_text=exact_name).last
                 if item.count():
                     item.click(force=True)
                 else:
                     self.page.get_by_text(module.name, exact=True).first.click(force=True)
-            return self._capture(run)
+            return self._capture(run, wait_ms=5000 if module.key == "main_business" else 2500)
         raise EnterpriseWarningError("structure_changed")
 
     def menu(self, company_code: str) -> list[dict[str, Any]]:

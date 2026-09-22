@@ -6,6 +6,7 @@ from leasedd.enterprise_warning import (
     QyjCollector,
     parse_analysis,
     parse_notes,
+    parse_main_business,
     parse_search,
     parse_three_reports,
 )
@@ -39,6 +40,19 @@ def test_pure_parsers_preserve_strings_and_nulls():
         "value": [["库存现金", "10", None]], "level": [1],
     }})
     assert notes["values"][0][1] is None
+
+
+def test_main_business_reuses_lossless_matrix_shape_with_units():
+    parsed = parse_main_business({"data": {
+        "head": ["报告期", "营业收入"],
+        "key": ["reportDate", "revenue"],
+        "unit": ["", "万元"],
+        "level": [0, 1],
+        "value": [["2025-12-31", "1,234.00"], ["2024-12-31", None]],
+    }})
+    assert parsed["periods"] == ["2025-12-31", "2024-12-31"]
+    assert parsed["rows"][0]["unit"] == "万元"
+    assert parsed["rows"][0]["values"] == ["1,234.00", None]
 
 
 def test_error_codes_are_distinct():
@@ -87,6 +101,35 @@ def test_collector_selects_authoritative_response_and_closes_session():
     assert collected.parsed["rows"][0]["values"] == ["100"]
     assert len(collected.response_sha256) == 64
     assert collect_session.closed
+
+
+def test_main_business_ignores_other_legacy_get_data_responses():
+    module = EnterpriseModule("main_business", "主营构成", "notes", "/getData.action", 12)
+    data = {"data": {
+        "head": ["报告期", "营业收入"], "key": ["reportDate", "revenue"],
+        "unit": ["", "万元"], "value": [["2025-12-31", "100"]],
+    }}
+    session = FakeSession([
+        ("https://x/getData.action?reportUrlType=mainBusiness", {"data": [{"list": []}]}),
+        ("https://x/getData.action?unitCode=4", data),
+        ("https://x/getData.action?_t=background", {"data": {"other": True}}),
+    ])
+    collected = QyjCollector(session_factory=lambda: session).collect_module("a", module)
+    assert collected.parsed["rows"][0]["values"] == ["100"]
+
+
+def test_collector_preserves_post_request_parameters():
+    module = EnterpriseModule("cash_analysis", "现金流量", "analysis", "/header-and-data", 9)
+    session = FakeSession([(
+        "https://x/header-and-data",
+        {"data": {"fieldList": [{"name": "现金比率", "value": "ratio"}],
+                  "dataList": [{"reportDate": "2025-12-31", "ratio": "1.2"}]}},
+        {"pageCode": "web-FinancialanalysisF9-Cashfow", "unit": "4", "reportRange": "1"},
+    )])
+    collected = QyjCollector(session_factory=lambda: session).collect_module("a", module)
+    assert collected.module.request_params == {
+        "pageCode": "web-FinancialanalysisF9-Cashfow", "unit": "4", "reportRange": "1"
+    }
 
 
 def test_collector_filters_menu_to_financial_modules():

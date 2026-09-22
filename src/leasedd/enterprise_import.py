@@ -103,8 +103,8 @@ def run_enterprise_import(app, task_id, lease_token):
                 EnterpriseFinancialData.module_key == module.key,
             ))
             values = dict(category=module.category, module_key=module.key, module_name=module.name,
-                          module_order=module.order, endpoint_path=module.endpoint_path,
-                          request_params=module.request_params, raw_payload=collected.raw,
+                          module_order=module.order, endpoint_path=collected.module.endpoint_path,
+                          request_params=collected.module.request_params, raw_payload=collected.raw,
                           parsed_payload=collected.parsed, response_sha256=collected.response_sha256,
                           state="completed", error=None, collected_at=time.time())
             if row:
