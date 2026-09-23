@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
-import {buildEnterpriseModuleView,filterEnterpriseMatrix,filterEnterpriseRecords,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
+import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
@@ -346,16 +346,23 @@ test('enterprise note records keep provider headers, period groups and raw forma
  assert.equal(view.tables[0].rows[0][1],'6.04亿');
 });
 
-test('enterprise note record period and blank-row controls filter actual records',()=>{
- const view={kind:'records',tables:[
-  {title:'2025年年报',headers:['项目','金额'],rows:[['第一名','6.04亿'],['无披露','']]},
-  {title:'2024年年报',headers:['项目','金额'],rows:[['第一名','5.00亿']]},
- ]};
- assert.deepEqual(filterEnterpriseRecords(view,{report:'latest',descending:true,hideEmpty:true}).tables,
-  [{title:'2025年年报',headers:['项目','金额'],rows:[['第一名','6.04亿']]}]);
- assert.deepEqual(filterEnterpriseRecords(view,{report:'annual',descending:false,hideEmpty:false}).tables.map(table=>table.title),
-  ['2024年年报','2025年年报']);
- assert.equal(filterEnterpriseRecords(view,{report:'half',descending:true,hideEmpty:false}).tables.length,0);
+test('source customer records have export only while period matrices have report controls',()=>{
+ const records=buildEnterpriseModuleView({module_key:'major_customers',category:'notes',parsed_payload:{head:[['客户名称','第一名']],rows:[[ ['金额','1亿'] ]],metadata:{report:['20251231']}}});
+ const matrix=buildEnterpriseModuleView({module_key:'cash_notes',category:'notes',parsed_payload:{head:['项目','现金'],rows:[['20251231','1亿']],metadata:{}}});
+ assert.equal(enterpriseHasPeriodControls(records),false);
+ assert.equal(enterpriseHasPeriodControls(matrix),true);
+});
+
+test('customer note repeats year groups under one matching header without merging changed layouts',()=>{
+ const tables=[
+  {title:'2025年年报',headers:['客户','金额'],rows:[['第一名','6亿']]},
+  {title:'2024年年报',headers:['客户','金额'],rows:[['第一名','5亿']]},
+  {title:'2023年年报',headers:['客户','金额','占比'],rows:[['第一名','4亿','30%']]},
+ ];
+ const groups=groupEnterpriseRecordTables(tables);
+ assert.deepEqual(groups.map(group=>group.map(table=>table.title)),[['2025年年报','2024年年报'],['2023年年报']]);
+ assert.equal(groups[0][0].rows[0][1],'6亿');
+ assert.equal(groups[0][1].rows[0][1],'5亿');
 });
 
 test('enterprise flat notes transpose periods into columns without changing formatted values',()=>{

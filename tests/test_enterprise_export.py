@@ -197,16 +197,3 @@ def test_export_keeps_customer_year_groups_and_header_orientation():
     book, values = rows(export_enterprise_workbook(module))
     assert values == [('客户名称','销售额','占比'),('2025年年报',None,None),('第一名','6.04亿','31.30%'),('合计','9.08亿','47.07%')]
     book.close()
-
-
-def test_record_export_matches_report_sort_and_hidden_blank_rows():
-    module=SimpleNamespace(module_name='主要销售客户',category='notes',request_params={},raw_payload={},parsed_payload={
-        'head':[['客户名称','第一名','无披露'],['客户名称','第一名']],
-        'rows':[[['销售额','6.04亿',''],['占比','31.30%',None]],[['销售额','5.00亿']]],
-        'metadata':{'report':['20251231','20241231']}})
-    book,values=rows(export_enterprise_workbook(module,report='latest',hide_empty=True))
-    assert values==[('客户名称','销售额','占比'),('2025年年报',None,None),('第一名','6.04亿','31.30%')]
-    book.close()
-    book,values=rows(export_enterprise_workbook(module,report='annual',descending=False,hide_empty=False))
-    assert [row[0] for row in values if row[0] in {'2024年年报','2025年年报'}]==['2024年年报','2025年年报']
-    book.close()

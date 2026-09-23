@@ -99,25 +99,13 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         hide_empty=False
     output=[]
     if heads and isinstance(heads[0],list):
-        source_reports=metadata.get('report') or []
-        labelled=[_period(source_reports[index]) if index<len(source_reports) else str(index+1) for index in range(len(heads))]
-        latest=max(map(_order,labelled)) if labelled else 0
-        selected=set(report.split(','))
-        indices=[index for index,period in enumerate(labelled) if (not start or period[:4]>=start) and (not end or period[:4]<=end) and
-                 ('all' in selected or _kind(period) in selected or 'latest' in selected and _order(period)==latest)]
-        indices.sort(key=lambda index:_order(labelled[index]),reverse=descending)
-        previous_header=None
-        for index in indices:
-            head=heads[index]
+        reports=metadata.get('report') or [];previous_header=None
+        for index,head in enumerate(heads):
             columns=rows[index] if index<len(rows) else []
             header=[head[0],*[column[0] for column in columns]]
             if header!=previous_header:output.append(header);previous_header=header
-            output.append([labelled[index]])
-            for i,name in enumerate(head[1:]):
-                values=[column[i+1] if i+1<len(column) else None for column in columns]
-                if hide_empty and all(_blank(value) for value in values):continue
-                output.append([name,*values])
-        if not output:output=[['当前筛选无已导入期间']]
+            output.append([_period(reports[index]) if index<len(reports) else str(index+1)])
+            output.extend([[name,*[column[i+1] if i+1<len(column) else None for column in columns]] for i,name in enumerate(head[1:])])
     else:
         if heads and rows and all(isinstance(row,list) and re.fullmatch(r'\d{8}',str(row[0])) for row in rows):
             periods=[_period(row[0]) for row in rows]

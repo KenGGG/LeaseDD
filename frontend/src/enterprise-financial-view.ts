@@ -7,6 +7,18 @@ export type EnterpriseModuleView=
  | {kind:'matrix';periods:string[];rows:EnterpriseMatrixRow[]}
  | {kind:'records';tables:EnterpriseRecordTable[]}
  | {kind:'empty';confirmed:boolean;unavailable?:boolean};
+// The verified nested customer/supplier record pages expose only Excel export;
+// their year headings are data groups, not a period toolbar.
+export function enterpriseHasPeriodControls(view:EnterpriseModuleView){return view.kind==='matrix'}
+export function groupEnterpriseRecordTables(tables:EnterpriseRecordTable[]){
+ const groups:EnterpriseRecordTable[][]=[];
+ for(const table of tables){
+  const current=groups[groups.length-1],head=current?.[0]?.headers;
+  if(head&&head.length===table.headers.length&&head.every((value,index)=>value===table.headers[index]))current.push(table);
+  else groups.push([table]);
+ }
+ return groups;
+}
 
 const object=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
 const strings=(value:unknown):string[]=>Array.isArray(value)?value.map(item=>item==null?'':String(item)):[];
@@ -167,19 +179,6 @@ function periodKind(period:string){
 function periodOrder(period:string){const ranks:Record<string,number>={annual:4,half:2,q3:3,q1:1};return Number(period.slice(0,4))*10+(ranks[periodKind(period)]??0)}
 function periodQuarter(period:string){const order=periodOrder(period);return Math.floor(order/10)*4+order%10}
 export const enterpriseIsBlank=(value:unknown)=>value==null||['','-','—','--'].includes(String(value).trim());
-export function filterEnterpriseRecords(view:Extract<EnterpriseModuleView,{kind:'records'}>,filter:Pick<EnterpriseFilter,'report'|'start'|'end'|'descending'|'hideEmpty'>){
- const dated=view.tables.some(table=>/^\d{4}年/.test(table.title));
- const latest=Math.max(...view.tables.map(table=>periodOrder(table.title)));
- const reports=filter.report.split(',');
- const tables=view.tables.filter(table=>{
-  if(!dated)return true;
-  const year=table.title.slice(0,4);
-  return (!filter.start||year>=filter.start)&&(!filter.end||year<=filter.end)&&
-   (reports.includes('all')||reports.includes(periodKind(table.title))||reports.includes('latest')&&periodOrder(table.title)===latest);
- }).map(table=>({...table,rows:filter.hideEmpty?table.rows.filter(row=>row.slice(1).some(value=>!enterpriseIsBlank(value))):table.rows}));
- if(dated)tables.sort((a,b)=>(periodOrder(b.title)-periodOrder(a.title))*(filter.descending?1:-1));
- return {...view,tables};
-}
 export function filterEnterpriseMatrix(view:Extract<EnterpriseModuleView,{kind:'matrix'}>,filter:EnterpriseFilter){
  const reports=filter.report.split(','),latest=Math.max(...view.periods.map(periodOrder));
  const latestQuarter=Math.max(...view.periods.map(periodQuarter));
