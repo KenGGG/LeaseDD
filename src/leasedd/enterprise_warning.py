@@ -143,6 +143,16 @@ def parse_analysis(payload: dict[str, Any]) -> dict[str, Any]:
     periods = [row.get(period_field) for row in values if isinstance(row, dict)]
     if len(periods) != len(values) or any(period is None for period in periods):
         raise EnterpriseWarningError("structure_changed")
+    def with_values(item: dict[str, Any]) -> dict[str, Any]:
+        key = item["value"]
+        children = item.get("children")
+        return {
+            **item,
+            "values": [row.get(key) for row in values],
+            **({"children": [with_values(child) for child in children]}
+               if isinstance(children, list) else {}),
+        }
+
     rows = []
     for item in fields:
         if not isinstance(item, dict) or not item.get("value"):
@@ -150,7 +160,7 @@ def parse_analysis(payload: dict[str, Any]) -> dict[str, Any]:
         key = item["value"]
         if key == period_field:
             continue
-        rows.append({**item, "values": [row.get(key) for row in values]})
+        rows.append(with_values(item))
     return {"periods": periods, "rows": rows, "total": data.get("total")}
 
 

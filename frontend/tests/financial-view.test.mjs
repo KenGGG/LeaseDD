@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
+import {buildEnterpriseModuleView} from '../src/enterprise-financial-view.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
@@ -140,4 +141,57 @@ test('enterprise coverage, partial state and task labels stay provider-specific'
  assert.equal(taskDisplay({kind:'enterprise_import',mode:'qyyjt'}).label.includes('Agnes'),false);
  assert.equal(usesPdfEvidence('enterprise_warning'),false);
  assert.equal(usesPdfEvidence(undefined),true);
+});
+
+test('enterprise indicator and analysis matrices preserve hierarchy, periods, units and blanks',()=>{
+ const module={module_key:'per_share',module_name:'每股指标',category:'analysis',parsed_payload:{periods:['2026年中报','2025年年报'],rows:[
+  {name:'上市公司披露',value:'group',highlight:true,unit:'',values:[null,null],children:[
+   {name:'基本每股收益(元)',value:'eps',unit:'元',values:['0.42','0.38'],children:[]},
+   {name:'稀释每股收益(元)',value:'diluted',unit:'元',values:[null,''] ,children:[]},
+  ]},
+ ]}};
+ const view=buildEnterpriseModuleView(module);
+ assert.equal(view.kind,'matrix');
+ assert.deepEqual(view.periods,['2026年中报','2025年年报']);
+ assert.deepEqual(view.rows.map(row=>[row.label,row.depth,row.unit,row.values]),[
+  ['上市公司披露',0,'',[null,null]],
+  ['基本每股收益(元)',1,'元',['0.42','0.38']],
+  ['稀释每股收益(元)',1,'元',[null,'']],
+ ]);
+});
+
+test('enterprise note records keep provider headers, period groups and raw formatted values',()=>{
+ const module={module_key:'major_customers',module_name:'主要销售客户',category:'notes',parsed_payload:{
+  head:[['客户名称','第一名','合计'],['客户名称','第一名','合计']],
+  rows:[[['销售额','6.04亿','9.08亿'],['占比','31.30%','47.07%']], [['销售额','5.00亿','8.00亿']]],
+  metadata:{report:['20251231','20241231']},
+ }};
+ const view=buildEnterpriseModuleView(module);
+ assert.equal(view.kind,'records');
+ assert.deepEqual(view.tables.map(table=>table.title),['20251231','20241231']);
+ assert.deepEqual(view.tables[0].headers,['客户名称','第一名','合计']);
+ assert.equal(view.tables[0].rows[0][1],'6.04亿');
+});
+
+test('enterprise confirmed empty modules remain explicit instead of becoming zero rows',()=>{
+ const view=buildEnterpriseModuleView({module_key:'long_term_receivables',module_name:'长期应收款',category:'notes',parsed_payload:{head:[],rows:[],values:[],metadata:{empty:true}}});
+ assert.deepEqual(view,{kind:'empty',confirmed:true});
+});
+
+test('enterprise matrix uses provider export header units instead of database units',()=>{
+ const view=buildEnterpriseModuleView({module_key:'main_indicators',module_name:'主要财务指标',category:'indicators',parsed_payload:{
+  periods:['2025年年报'],
+  rows:[{name:'营业收入',key:'revenue',unit:'元',values:['95299.72']},{name:'同比',key:'growth',unit:'%',values:['44.35']}],
+  metadata:{headExport:['指标名称','营业收入（万元）','同比（%）']},
+ }});
+ assert.deepEqual(view.rows.map(row=>[row.label,row.unit]),[['营业收入','万元'],['同比','%']]);
+});
+
+test('enterprise analysis view hydrates legacy child values from the saved raw response',()=>{
+ const view=buildEnterpriseModuleView({module_key:'per_share',module_name:'每股指标',category:'analysis',
+  parsed_payload:{periods:['2026年中报'],rows:[{name:'上市公司披露',value:'group',values:[null],children:[{name:'基本每股收益',value:'eps',unit:'元',children:[]}]}]},
+  raw_payload:{data:{dataList:[{reportDate2:'2026年中报',eps:'0.42'}]}},
+ });
+ assert.equal(view.kind,'matrix');
+ assert.deepEqual(view.rows[1].values,['0.42']);
 });

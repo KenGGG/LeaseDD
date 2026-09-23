@@ -64,6 +64,27 @@ def test_analysis_uses_declared_period_field_and_excludes_it_from_metrics():
     assert parsed["rows"][0]["values"] == ["0.42"]
 
 
+def test_analysis_preserves_child_rows_with_their_period_values():
+    parsed = parse_analysis({"data": {
+        "fieldList": [
+            {"name": "指标名称", "value": "reportDate2", "unit": ""},
+            {"name": "上市公司披露", "value": "group", "highlight": True, "children": [
+                {"name": "基本每股收益(元)", "value": "eps", "unit": "元", "children": []},
+                {"name": "稀释每股收益(元)", "value": "diluted", "unit": "元", "children": []},
+            ]},
+        ],
+        "dataList": [
+            {"reportDate2": "2026年中报", "eps": "0.42", "diluted": None},
+            {"reportDate2": "2025年年报", "eps": "0.38", "diluted": "0.37"},
+        ],
+        "total": 2,
+    }})
+    group = parsed["rows"][0]
+    assert group["values"] == [None, None]
+    assert group["children"][0]["values"] == ["0.42", "0.38"]
+    assert group["children"][1]["values"] == [None, "0.37"]
+
+
 def test_main_business_reuses_lossless_matrix_shape_with_units():
     parsed = parse_main_business({"data": {
         "head": ["报告期", "营业收入"],
