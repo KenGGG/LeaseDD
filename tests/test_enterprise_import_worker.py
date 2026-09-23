@@ -1,6 +1,8 @@
 from dataclasses import replace
 from types import SimpleNamespace
 
+import pytest
+
 from sqlalchemy import func, select
 
 from leasedd.db import (
@@ -8,13 +10,13 @@ from leasedd.db import (
     Project, Task, User, database,
 )
 from leasedd.enterprise_import import enqueue_enterprise_import
-from leasedd.enterprise_warning import CollectedModule, EnterpriseModule, EnterpriseWarningError
+from leasedd.enterprise_warning import CollectedModule, EnterpriseModule, EnterpriseWarningError, MODULES
 from leasedd.worker import run_once
 
 
 def modules():
     result = []
-    for index in range(21):
+    for index in range(len(MODULES)):
         category = "statements" if index < 4 else ("analysis" if index < 11 else "notes")
         endpoint = "/report/getThreeReports" if category == "statements" else "/module"
         result.append(EnterpriseModule(f"module-{index}", f"模块{index}", category, endpoint, index))
@@ -57,6 +59,25 @@ def seeded(tmp_path, collector):
         return app, factory, project.id, user.id, binding.id, task.id, record.id
 
 
+def test_queued_import_keeps_original_company_when_binding_changes(tmp_path):
+    class IdentityCollector(FakeCollector):
+        def enumerate_modules(self, company_code):
+            assert company_code == 'company-1'
+            return super().enumerate_modules(company_code)
+
+        def collect_module(self, company_code, module):
+            assert company_code == 'company-1'
+            return super().collect_module(company_code, module)
+
+    app, factory, _, _, binding_id, task_id, import_id = seeded(tmp_path, IdentityCollector())
+    with factory.begin() as db:
+        db.get(EnterpriseBinding, binding_id).company_code = 'company-2'
+    assert run_once(app)
+    with factory() as db:
+        assert db.get(Task, task_id).state == 'completed'
+        assert db.get(EnterpriseImport, import_id).state == 'completed'
+
+
 def test_worker_imports_all_modules_without_agnes(tmp_path):
     collector = FakeCollector()
     app, factory, project_id, _, _, task_id, import_id = seeded(tmp_path, collector)
@@ -67,10 +88,27 @@ def test_worker_imports_all_modules_without_agnes(tmp_path):
         assert record.state == "completed"
         assert record.quality_state == "passed"
         assert len(record.content_sha256) == 64
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 21
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == len(MODULES)
         row = db.scalar(select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id))
-        assert row.request_params == {"unit": "万元", "source": "xhr"}
-    assert collector.collected == [f"module-{index}" for index in range(21)]
+        assert row.request_params == {"unit": "万元", "source": "xhr", "company_code":"company-1", "company_name":"测试公司"}
+    assert collector.collected == [f"module-{index}" for index in range(len(MODULES))]
+
+
+def test_source_disabled_modules_are_saved_but_not_counted_as_data_successes(tmp_path):
+    class DisabledCollector(FakeCollector):
+        def collect_module(self,company_code,module):
+            result=super().collect_module(company_code,module)
+            if module.key=='module-12':return replace(result,parsed={'rows':[],'metadata':{'unavailable':True}})
+            return result
+    app,factory,_,_,_,task_id,import_id=seeded(tmp_path,DisabledCollector())
+    assert run_once(app)
+    with factory() as db:
+        record=db.get(EnterpriseImport,import_id);task=db.get(Task,task_id)
+        assert record.module_status['module-12']['state']=='unavailable'
+        assert record.state=='completed'
+        assert record.quality_state=='passed_with_gaps'
+        assert task.result['module_count']==len(MODULES)-1
+        assert task.result['unavailable_modules']==['module-12']
 
 
 def test_partial_and_total_failure_are_recorded_without_losing_successes(tmp_path):
@@ -83,9 +121,9 @@ def test_partial_and_total_failure_are_recorded_without_losing_successes(tmp_pat
         assert record.state == "partial"
         assert record.quality_state == "passed_with_gaps"
         assert record.module_status["module-5"] == {"state": "failed", "error": "structure_changed"}
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 20
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == len(MODULES)-1
 
-    collector = FakeCollector({f"module-{index}" for index in range(21)})
+    collector = FakeCollector({f"module-{index}" for index in range(len(MODULES))})
     app, factory, _, _, _, _, import_id = seeded(tmp_path / "all", collector)
     assert run_once(app)
     with factory() as db:
@@ -99,6 +137,29 @@ def test_formula_conflict_is_warning_not_failed_import(tmp_path):
         record = db.get(EnterpriseImport, import_id)
         assert record.state == "completed"
         assert record.quality_state == "warning"
+
+
+@pytest.mark.parametrize("code", ["authentication_required", "login_expired", "browser_unavailable", "profile_missing", "profile_in_use"])
+def test_session_failure_stops_remaining_modules_and_preserves_successes(tmp_path, code):
+    class InterruptedCollector(FakeCollector):
+        def collect_module(self, company_code, module):
+            if module.order >= 1:
+                self.collected.append(module.key)
+                raise EnterpriseWarningError(code)
+            return super().collect_module(company_code, module)
+
+    collector = InterruptedCollector()
+    app, factory, _, _, _, _, import_id = seeded(tmp_path, collector)
+    assert run_once(app)
+    assert collector.collected == ["module-0", "module-1"]
+    with factory() as db:
+        record = db.get(EnterpriseImport, import_id)
+        assert record.state == "partial"
+        assert record.error == code
+        assert record.module_status["module-0"]["state"] == "completed"
+        assert record.module_status["module-20"] == {"state": "failed", "error": code}
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(
+            EnterpriseFinancialData.import_id == import_id)) == 1
 
 
 def test_enqueue_deduplicates_active_task_and_retry_reuses_import(tmp_path):
@@ -121,4 +182,4 @@ def test_enqueue_deduplicates_active_task_and_retry_reuses_import(tmp_path):
     with factory() as db:
         assert db.get(Task, retry_task_id).state == "completed"
         assert db.get(EnterpriseImport, import_id).state == "completed"
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 21
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == len(MODULES)

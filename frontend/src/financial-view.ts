@@ -97,7 +97,7 @@ export function cellState(candidates:Candidate[]):{kind:'empty'|'rejected'|'unve
  const pending=active.some(c=>!['source_verified','human_confirmed'].includes(c.item.status)||c.statement.issues.length>0);
  return {kind:pending?'pending':'value',value:active[0].item.normalized_value,confirmed:active.every(c=>c.item.status==='human_confirmed')};
 }
-export const unitPowers:Record<string,number>={'元':0,'千元':3,'万元':4,'百万元':6,'亿元':8};
+export const unitPowers:Record<string,number>={'元':0,'千元':3,'万元':4,'百万元':6,'亿元':8,'十亿元':9};
 export function formatAmount(value:string|null,unit:string,decimals:number):string{
  if(value===null||! /^-?\d+(\.\d+)?$/.test(value)||!(unit in unitPowers))return '—';
  const negative=value.startsWith('-'),[whole,fraction='']=value.replace(/^-/,'').split('.');

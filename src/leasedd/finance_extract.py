@@ -12,6 +12,7 @@ UNIT_SCALES = {
     "万元": Decimal("10000"),
     "百万元": Decimal("1000000"),
     "亿元": Decimal("100000000"),
+    "十亿元": Decimal("1000000000"),
 }
 FINANCIAL_CONCEPTS = {
     "cash", "trading_financial_assets", "notes_receivable", "accounts_receivable",

@@ -8,7 +8,8 @@ import './financial.css';
 import FinancialInsights from './FinancialInsights';
 import FinancialNotes from './FinancialNotes';
 import {analysisCategories,noteCategories,noteGroups,noteParent,noteLabel} from './reference-finance';
-import {buildEnterpriseModuleView} from './enterprise-financial-view';
+import EnterpriseFinancialTable from './EnterpriseFinancialTable';
+import {enterpriseModuleGroups,mergeEnterpriseModule} from './enterprise-financial-view';
 
 type Props={statements:FinancialStatement[];docs:Doc[];pid:string;writer:boolean;busy:boolean;perform:(fn:()=>Promise<void>)=>void;refresh:()=>Promise<void>;children:React.ReactNode};
 const stateText={empty:'—',rejected:'已拒绝',unverified:'来源待核对',conflict:'存在冲突',pending:'待核对',value:''};
@@ -22,10 +23,15 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
  const [selection,setSelection]=useState<{concept:string;period:string}|null>(null);
  const [rowOrder,setRowOrder]=useState<'source'|'standard'>('source'),[review,setReview]=useState('all');
  const [enterprise,setEnterprise]=useState<EnterpriseStatus|null>(null),[canImport,setCanImport]=useState(false);
+ const [enterpriseStatusLoading,setEnterpriseStatusLoading]=useState(true),[enterpriseStatusError,setEnterpriseStatusError]=useState(false);
  const [enterpriseQuery,setEnterpriseQuery]=useState(''),[enterpriseCandidates,setEnterpriseCandidates]=useState<EnterpriseCandidate[]>([]),[selectedCompany,setSelectedCompany]=useState('');
- const [enterpriseModules,setEnterpriseModules]=useState<EnterpriseModuleData[]>([]),[enterpriseCoverageModules,setEnterpriseCoverageModules]=useState<EnterpriseModuleData[]>([]);
+ const [enterpriseData,setEnterpriseData]=useState<{pid:string;importId:string|null;modules:EnterpriseModuleData[]}>({pid:'',importId:null,modules:[]});
+ const [enterpriseDataError,setEnterpriseDataError]=useState(false);
+ const enterpriseCoverageModules=enterpriseData.pid===pid?enterpriseData.modules:[];
  const enterpriseAnalysis=enterpriseCoverageModules.filter(module=>module.category==='analysis');
  const enterpriseNotes=enterpriseCoverageModules.filter(module=>module.category==='notes');
+ const activeEnterpriseName=type==='analysis'?analysisCategory:type==='notes'?notesCategory:type==='metrics'?'主要财务指标':statementLabels[type];
+ const activeEnterpriseModule=enterpriseCoverageModules.find(module=>(module.module_name||module.module_key)===activeEnterpriseName);
  const groups=[...new Map(statements.map(s=>[groupKey(s),s])).entries()];
  const group=groups.some(([key])=>key===selectedGroup)?selectedGroup:groups[0]?.[0]||'';
  const selected=groups.find(([key])=>key===group)?.[1];
@@ -38,9 +44,31 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
  const periodIndex=matrix.periods.findIndex(p=>p.key===selection?.period);
  const candidates=chosenRow?.cells[periodIndex]||[];
  useEffect(()=>setSelection(null),[pid,group,type,report,startYear,endYear]);
- useEffect(()=>{let active=true;Promise.all([api<EnterpriseStatus>('/projects/'+pid+'/enterprise'),api<User>('/me')]).then(([status,user])=>{if(active){setEnterprise(status);setCanImport(user.admin)}});return()=>{active=false}},[pid]);
- useEffect(()=>{if(enterprise?.source_type!=='enterprise_warning'||!['metrics','analysis','notes'].includes(type)){setEnterpriseModules([]);return}let active=true;const category=type==='metrics'?'indicators':type;api<{modules:EnterpriseModuleData[]}>('/projects/'+pid+'/enterprise/data?category='+category).then(result=>{if(active)setEnterpriseModules(result.modules)});return()=>{active=false}},[pid,type,enterprise?.import?.id]);
- useEffect(()=>{if(enterprise?.source_type!=='enterprise_warning'){setEnterpriseCoverageModules([]);return}let active=true;api<{modules:EnterpriseModuleData[]}>('/projects/'+pid+'/enterprise/data').then(result=>{if(active)setEnterpriseCoverageModules(result.modules)});return()=>{active=false}},[pid,enterprise?.import?.id]);
+ useEffect(()=>{let active=true;setEnterprise(null);setCanImport(false);setEnterpriseStatusLoading(true);setEnterpriseStatusError(false);Promise.all([api<EnterpriseStatus>('/projects/'+pid+'/enterprise'),api<User>('/me')]).then(([status,user])=>{if(active){setEnterprise(status);setCanImport(user.admin);setEnterpriseStatusLoading(false)}}).catch(()=>{if(active){setEnterpriseStatusError(true);setEnterpriseStatusLoading(false)}});return()=>{active=false}},[pid]);
+ useEffect(()=>{if(enterprise?.source_type!=='enterprise_warning'){setEnterpriseData({pid,importId:null,modules:[]});return}let active=true;setEnterpriseDataError(false);api<{import_id:string|null;modules:EnterpriseModuleData[]}>('/projects/'+pid+'/enterprise/data?summary_only=true').then(result=>{if(active)setEnterpriseData({pid,importId:result.import_id,modules:result.modules})}).catch(()=>{if(active)setEnterpriseDataError(true)});return()=>{active=false}},[pid,enterprise?.import?.id,enterprise?.import?.state,enterprise?.source_type,enterprise?.binding?.company_code]);
+ useEffect(()=>{
+  const moduleKey=activeEnterpriseModule?.module_key,importId=enterpriseData.importId;
+  if(enterprise?.source_type!=='enterprise_warning'||enterpriseData.pid!==pid||!importId||!moduleKey||activeEnterpriseModule.parsed_payload)return;
+  let active=true;setEnterpriseDataError(false);
+  const params=new URLSearchParams({module_key:moduleKey,import_id:importId,expected_hash:activeEnterpriseModule.response_sha256||''});
+  api<{import_id:string|null;modules:EnterpriseModuleData[]}>('/projects/'+pid+'/enterprise/data?'+params).then(result=>{
+   if(!active)return;
+   if(result.import_id!==importId||result.modules.length!==1||result.modules[0].module_key!==moduleKey)throw new Error('enterprise_source_changed');
+   setEnterpriseData(previous=>mergeEnterpriseModule(previous,pid,importId,moduleKey,result));
+  }).catch(()=>{if(active)setEnterpriseDataError(true)});
+  return()=>{active=false};
+ },[pid,enterprise?.source_type,enterpriseData.pid,enterpriseData.importId,activeEnterpriseModule?.module_key,activeEnterpriseModule?.parsed_payload,activeEnterpriseModule?.response_sha256]);
+ useEffect(()=>{
+  if(!['queued','running'].includes(enterprise?.import?.state||''))return;
+  let active=true,timer:ReturnType<typeof setTimeout>;
+  async function poll(){
+   try{const status=await api<EnterpriseStatus>('/projects/'+pid+'/enterprise');if(!active)return;setEnterprise(status);if(!['queued','running'].includes(status.import?.state||'')){await refresh();return}}
+   catch{if(!active)return}
+   if(active)timer=setTimeout(poll,5000);
+  }
+  timer=setTimeout(poll,3000);
+  return()=>{active=false;clearTimeout(timer)};
+ },[pid,enterprise?.import?.id,enterprise?.import?.state]);
  async function reloadEnterprise(){setEnterprise(await api<EnterpriseStatus>('/projects/'+pid+'/enterprise'));await refresh()}
  async function searchEnterprise(){const result=await api<{candidates:EnterpriseCandidate[]}>('/projects/'+pid+'/enterprise/import','POST',{query:enterpriseQuery});setEnterpriseCandidates(result.candidates);setSelectedCompany('')}
  async function importEnterprise(){const chosen=selectedEnterpriseCandidate(enterpriseCandidates,selectedCompany);if(!chosen)return;await api('/projects/'+pid+'/enterprise/import','POST',{company_code:chosen.code,company_name:chosen.name});await reloadEnterprise()}
@@ -54,18 +82,22 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
   const a=document.createElement('a');a.href=url;a.download='LeaseDD_'+(type==='metrics'?'财务指标':statementLabels[type as FinancialStatement['statement_type']])+'_待核对.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  }
  function selectTab(value:typeof type){setType(value);setQuery('');setInsightSelection(null)}
- return <div className="financial-workspace">
+ return <div className={'financial-workspace'+(enterprise?.source_type==='enterprise_warning'?' enterprise-workspace':'')}>
   <nav className="finance-nav" aria-label="财务数据栏目"><div className="finance-nav-title">财务数据</div>
    <button className={type==='metrics'?'active':''} onClick={()=>selectTab('metrics')}>主要财务指标</button>
    {Object.entries(statementLabels).map(([key,label])=><button key={key} className={type===key?'active':''} onClick={()=>selectTab(key as typeof type)}>{label}</button>)}
    <button className={type==='analysis'?'active':''} onClick={()=>selectTab('analysis')}>财务分析</button>
    {type==='analysis'&&(enterprise?.source_type==='enterprise_warning'?enterpriseAnalysis.map(module=><button key={module.module_key} className={'finance-subnav '+(analysisCategory===(module.module_name||module.module_key)?'active':'')} onClick={()=>setAnalysisCategory(module.module_name||module.module_key)}>{module.module_name||module.module_key}</button>):analysisCategories.map(c=><button key={c} className={'finance-subnav '+(analysisCategory===c?'active':'')} onClick={()=>setAnalysisCategory(c)}>{c}</button>))}
    <button className={type==='notes'?'active':''} onClick={()=>selectTab('notes')}>财务附注</button>
-   {type==='notes'&&(enterprise?.source_type==='enterprise_warning'?enterpriseNotes.map(module=><button key={module.module_key} className={'finance-subnav '+(notesCategory===(module.module_name||module.module_key)?'active':'')} onClick={()=>setNotesCategory(module.module_name||module.module_key)}>{module.module_name||module.module_key}</button>):noteCategories.map(c=><React.Fragment key={c}><button className={'finance-subnav '+(noteParent(notesCategory)===c?'active':'')} onClick={()=>setNotesCategory(noteGroups[c]?.[0]||c)}>{c}</button>{noteParent(notesCategory)===c&&noteGroups[c]?.map(child=><button key={child} className={'finance-subnav finance-leaf '+(notesCategory===child?'active':'')} onClick={()=>setNotesCategory(child)}>{noteLabel(child)}</button>)}</React.Fragment>))}
+   {type==='notes'&&(enterprise?.source_type==='enterprise_warning'?<EnterpriseNotesNavigation modules={enterpriseNotes} selected={notesCategory} onSelect={setNotesCategory}/>:noteCategories.map(c=><React.Fragment key={c}><button className={'finance-subnav '+(noteParent(notesCategory)===c?'active':'')} onClick={()=>setNotesCategory(noteGroups[c]?.[0]||c)}>{c}</button>{noteParent(notesCategory)===c&&noteGroups[c]?.map(child=><button key={child} className={'finance-subnav finance-leaf '+(notesCategory===child?'active':'')} onClick={()=>setNotesCategory(child)}>{noteLabel(child)}</button>)}</React.Fragment>))}
   </nav>
   <section className="finance-content">
    <EnterprisePanel status={enterprise} modules={enterpriseCoverageModules} admin={canImport} busy={busy} query={enterpriseQuery} setQuery={setEnterpriseQuery} candidates={enterpriseCandidates} selected={selectedCompany} setSelected={setSelectedCompany} perform={perform} search={searchEnterprise} start={importEnterprise} retry={retryEnterprise}/>
-   {enterprise?.source_type==='enterprise_warning'&&['metrics','analysis','notes'].includes(type)?<EnterpriseRawModules modules={enterpriseModules} activeName={type==='analysis'?analysisCategory:type==='notes'?notesCategory:undefined}/>:type==='metrics'||type==='analysis'?<FinancialInsights pid={pid} statements={statements} mode={type} category={analysisCategory} onEvidence={(ids,title)=>setInsightSelection({ids,title})}>{children}</FinancialInsights>:type==='notes'?<FinancialNotes pid={pid} docs={docs} category={notesCategory}/>:<>
+   {enterpriseStatusLoading?<p role="status" className="finance-empty">正在加载财务数据来源…</p>:enterpriseStatusError?<p role="alert" className="finance-pending">财务数据来源加载失败，请刷新重试。</p>:enterprise?.source_type==='enterprise_warning'?<>
+    {enterpriseDataError&&<p role="alert" className="finance-pending">财务数据加载失败，请刷新重试；这不表示原站没有数据。</p>}
+    {!!diagnosticLabels.length&&<details className="finance-diagnostics"><summary>{diagnosticLabels.join('；')}</summary>{diagnosticStatements.flatMap(s=>(s.checks||[]).filter(c=>c.status!=='passed').map(c=><div key={s.id+c.code}><strong>{s.period} · {c.status==='conflict'?'勾稽不一致':'缺少披露项，未检查'}</strong>{c.difference!==null&&<span>差额 {c.difference}；容差 {c.tolerance}</span>}{!!c.item_ids?.length&&<button className="button secondary" onClick={()=>setInsightSelection({ids:c.item_ids||[],title:'勾稽检查相关来源'})}>查看相关来源</button>}</div>))}</details>}
+    {activeEnterpriseModule&&!activeEnterpriseModule.parsed_payload?<p role="status" className="finance-empty">{enterpriseDataError?'当前栏目未加载；请刷新重试。':'正在加载'+activeEnterpriseName+'…'}</p>:<EnterpriseFinancialTable key={pid+enterpriseData.importId+type+analysisCategory+notesCategory} projectId={pid} modules={enterpriseCoverageModules} activeName={activeEnterpriseName}/>}
+   </>:type==='metrics'||type==='analysis'?<FinancialInsights pid={pid} statements={statements} mode={type} category={analysisCategory} onEvidence={(ids,title)=>setInsightSelection({ids,title})}>{children}</FinancialInsights>:type==='notes'?<FinancialNotes pid={pid} docs={docs} category={notesCategory}/>:<>
     <div className="finance-heading"><div><h2>{statementLabels[type as FinancialStatement['statement_type']]}</h2><p>{selected?.entity||'上传资料后查看财务数据'}{selected&&<span> · {scopeLabels[selected.scope]||selected.scope} · {selected.currency==='CNY'?'人民币':selected.currency}</span>}</p></div><button className="button secondary" disabled={!matrix.periods.length} onClick={exportCsv}><Download size={14}/>导出 CSV</button></div>
     {!!diagnosticLabels.length&&<details className="finance-diagnostics"><summary>{diagnosticLabels.join('；')}</summary>{diagnosticStatements.flatMap(s=>(s.checks||[]).filter(c=>c.status!=='passed').map(c=><div key={s.id+c.code}><strong>{c.status==='conflict'?'勾稽不一致':c.status==='not_checked_missing_disclosure'?'缺少披露项，未检查':'来源未核实，未检查'}</strong>{c.difference!==null&&<span>差额 {c.difference}；容差 {c.tolerance}</span>}{c.missing_concepts.length>0&&<span>缺少：{c.missing_concepts.join('、')}</span>}{!!c.item_ids?.length&&<button className="button secondary" onClick={()=>setInsightSelection({ids:c.item_ids||[],title:'勾稽检查相关来源'})}>查看相关来源</button>}</div>))}</details>}
     {statements.length===0?<div className="finance-empty"><FileText size={32}/><h3>还没有识别出的财务报表</h3><p>在“资料与证据”上传材料，勾选允许 Agnes 提取财务数据，再点击“批量识别”。处理完成后，各期数据会在这里横向对齐。</p></div>:<>
@@ -94,27 +126,26 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
  </div>
 }
 
-function EnterprisePanel({status,modules,admin,busy,query,setQuery,candidates,selected,setSelected,perform,search,start,retry}:{status:EnterpriseStatus|null;modules:EnterpriseModuleData[];admin:boolean;busy:boolean;query:string;setQuery:(value:string)=>void;candidates:EnterpriseCandidate[];selected:string;setSelected:(value:string)=>void;perform:Props['perform'];search:()=>Promise<void>;start:()=>Promise<void>;retry:()=>Promise<void>}){
- const failed=failedEnterpriseModules(status?.import?.module_status),coverage=enterpriseCoverage(modules);
- return <aside className="enterprise-panel"><div><strong>财务数据来源：{status?.binding?'企业预警通':'尚未绑定'}</strong><span className="badge subtle">{enterpriseStateLabel(status?.import?.state)}</span>{status?.binding&&<small>{status.binding.company_name} · {status.binding.company_code}</small>}{modules.length>0&&<small>报表/指标 {coverage.statements}/4 · 财务分析 {coverage.analysis}/7 · 财务附注 {coverage.notes}/10</small>}{failed.length>0&&<small>失败模块：{failed.join('、')}</small>}</div>{admin&&<div className="enterprise-actions"><input aria-label="搜索企业预警通企业" placeholder="输入企业名称" value={query} onChange={event=>setQuery(event.target.value)}/><button className="button secondary" disabled={busy||!query.trim()} onClick={()=>perform(search)}>搜索</button>{candidates.length>0&&<><select aria-label="企业预警通候选" value={selected} onChange={event=>setSelected(event.target.value)}><option value="">请选择匹配企业</option>{candidates.map(candidate=><option key={candidate.code} value={candidate.code}>{candidate.name} · {candidate.code}</option>)}</select><button className="button primary" disabled={busy||!selected} onClick={()=>perform(start)}>确认并导入</button></>}{failed.length>0&&<button className="button secondary" disabled={busy} onClick={()=>perform(retry)}>重试失败模块</button>}</div>}</aside>
+function EnterpriseNotesNavigation({modules,selected,onSelect}:{modules:EnterpriseModuleData[];selected:string;onSelect:(name:string)=>void}){
+ const [expanded,setExpanded]=useState<Set<string>>(new Set());
+ return <>{enterpriseModuleGroups(modules).map(group=><React.Fragment key={group.name}>
+  {group.nested&&<button className="finance-subnav" aria-expanded={expanded.has(group.name)} onClick={()=>setExpanded(previous=>{const next=new Set(previous);next.has(group.name)?next.delete(group.name):next.add(group.name);return next})}>{expanded.has(group.name)?'⊟':'⊞'} {group.name}</button>}
+  {(!group.nested||expanded.has(group.name))&&group.children.map(module=><button key={module.module_key} disabled={module.state==='unavailable'} title={module.state==='unavailable'?'企业预警通原站当前禁用此栏目':undefined} className={'finance-subnav '+(group.nested?'finance-leaf ':'')+(selected===(module.module_name||module.module_key)?'active':'')} onClick={()=>onSelect(module.module_name||module.module_key)}>{module.module_name||module.module_key}</button>)}
+ </React.Fragment>)}</>;
 }
 
-function EnterpriseRawModules({modules,activeName}:{modules:EnterpriseModuleData[];activeName?:string}){
- const module=modules.find(item=>(item.module_name||item.module_key)===activeName)||modules[0];
- const [tableIndex,setTableIndex]=useState(0);
- useEffect(()=>setTableIndex(0),[module?.module_key]);
- if(!module)return <div className="finance-empty">当前栏目暂无企业预警通数据。</div>;
- const view=buildEnterpriseModuleView(module);
- const raw=(value:unknown)=>value==null||value===''?<span className="enterprise-blank" aria-label="空值"/>:String(value);
- const period=(value:string)=>/^\d{8}$/.test(value)?`${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}`:value;
- return <div className="enterprise-financial-view">
-  <div className="finance-heading"><div><h2>{module.module_name||module.module_key}</h2><p>数据来源：企业预警通 · 保留原始层级、期间、单位与显示值</p></div><span className="badge subtle">{module.state==='failed'?'导入失败':'已导入'}</span></div>
-  {view.kind==='empty'?<div className="finance-empty"><h3>企业预警通该栏目暂无数据</h3><p>{view.confirmed?'来源接口已明确返回空数据。':'当前导入没有可展示记录。'}</p></div>:view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={(module.module_name||module.module_key)+'原始数据表'}><table className="finance-matrix"><thead><tr><th scope="col">指标名称</th>{view.periods.map(value=><th scope="col" key={value}>{value}</th>)}</tr></thead><tbody>{view.rows.map(row=><tr key={row.key} className={row.section?'enterprise-section-row':''}><th scope="row" style={{paddingLeft:14+row.depth*20}}><span>{row.label}</span>{row.unit&&<small>{row.unit}</small>}{(row.description||row.formula)&&<span className="enterprise-row-help" title={row.description||row.formula||''} aria-label="查看指标说明">?</span>}</th>{view.periods.map((value,index)=><td key={value}>{raw(row.values[index])}</td>)}</tr>)}</tbody></table></div>:<>
-   {view.tables.length>1&&<div className="enterprise-period-tabs" role="tablist" aria-label="报告期">{view.tables.map((table,index)=><button key={table.title} role="tab" aria-selected={tableIndex===index} onClick={()=>setTableIndex(index)}>{period(table.title)}</button>)}</div>}
-   {view.tables[tableIndex]&&<div className="finance-table-scroll enterprise-record-table" tabIndex={0}><table className="finance-matrix"><thead><tr>{view.tables[tableIndex].headers.map((header,index)=><th scope="col" key={index}>{header}</th>)}</tr></thead><tbody>{view.tables[tableIndex].rows.map((row,index)=><tr key={index}>{row.map((value,column)=>column===0?<th scope="row" key={column}>{raw(value)}</th>:<td key={column}>{raw(value)}</td>)}</tr>)}</tbody></table></div>}
-  </>}
-  <details className="enterprise-source-details"><summary>查看来源信息</summary><dl><dt>原始栏目</dt><dd>{module.module_name||module.module_key}</dd><dt>接口</dt><dd>{module.endpoint_path}</dd><dt>响应 SHA-256</dt><dd className="finance-hash">{module.response_sha256}</dd></dl></details>
- </div>
+function EnterprisePanel({status,modules,admin,busy,query,setQuery,candidates,selected,setSelected,perform,search,start,retry}:{status:EnterpriseStatus|null;modules:EnterpriseModuleData[];admin:boolean;busy:boolean;query:string;setQuery:(value:string)=>void;candidates:EnterpriseCandidate[];selected:string;setSelected:(value:string)=>void;perform:Props['perform'];search:()=>Promise<void>;start:()=>Promise<void>;retry:()=>Promise<void>}){
+ const failed=failedEnterpriseModules(status?.import?.module_status),coverage=enterpriseCoverage(modules);
+ return <aside className="enterprise-panel">
+  <div><strong>财务数据来源：{status?.binding?'企业预警通':'尚未绑定'}</strong><span className="badge subtle">{enterpriseStateLabel(status?.import?.state)}</span>{status?.import?.completed_at&&<span className="enterprise-updated">最近采集：{new Date(status.import.completed_at*1000).toLocaleString('zh-CN',{hour12:false})}</span>}</div>
+  <details className="enterprise-import-details"><summary>{admin?'来源与导入管理':'来源信息'}</summary>
+   {status?.binding&&<p>{status.binding.company_name} · {status.binding.company_code}</p>}
+   {!!modules.length&&<p>当前可读：报表/指标 {coverage.statements} 项 · 财务分析 {coverage.analysis} 项 · 财务附注 {coverage.notes} 项</p>}
+   {modules.some(module=>module.state==='unavailable')&&<p>原站禁用（不计入数据成功项）：{modules.filter(module=>module.state==='unavailable').map(module=>module.module_name||module.module_key).join('、')}</p>}
+   {!!failed.length&&<p>失败模块：{failed.join('、')}</p>}
+   {admin&&<div className="enterprise-actions"><input aria-label="搜索企业预警通企业" placeholder="输入企业名称" value={query} onChange={event=>setQuery(event.target.value)}/><button className="button secondary" disabled={busy||!query.trim()} onClick={()=>perform(search)}>搜索</button>{candidates.length>0&&<><select aria-label="企业预警通候选" value={selected} onChange={event=>setSelected(event.target.value)}><option value="">请选择匹配企业</option>{candidates.map(candidate=><option key={candidate.code} value={candidate.code}>{candidate.name} · {candidate.code}</option>)}</select><button className="button primary" disabled={busy||!selected} onClick={()=>perform(start)}>确认并导入</button></>}{failed.length>0&&<button className="button secondary" disabled={busy} onClick={()=>perform(retry)}>重试失败模块</button>}</div>}
+  </details>
+ </aside>;
 }
 
 function Evidence({title,candidates,docName,pid,writer,busy,perform,refresh,close}:{title:string;candidates:Candidate[];docName:(id:string)=>string;pid:string;writer:boolean;busy:boolean;perform:Props['perform'];refresh:Props['refresh'];close:()=>void}){

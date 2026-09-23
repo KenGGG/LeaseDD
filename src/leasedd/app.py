@@ -2,7 +2,7 @@ import hashlib, os, secrets, time, re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, delete
 from .db import Base, database, User, LoginSession, Project, Member, Document, DocumentConversion, ExtractionRun, FinancialStatement, FinancialItem, FactBatch, Task, Export, Audit, Setting, SectionRevision, EnterpriseBinding, EnterpriseImport, EnterpriseFinancialData, uid
 from .security import password_hash, verify_password, token_hash
@@ -272,8 +272,27 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
 
     def latest_enterprise_import(db,pid,readable=False):
         query=select(EnterpriseImport).where(EnterpriseImport.project_id==pid)
-        if readable:query=query.where(EnterpriseImport.state.in_(['completed','partial']))
-        return db.scalar(query.order_by(EnterpriseImport.completed_at.desc(),EnterpriseImport.started_at.desc()))
+        if not readable:
+            return db.scalar(query.join(Task,Task.id==EnterpriseImport.task_id).order_by(Task.created_at.desc()))
+        if readable:
+            query=query.where(EnterpriseImport.state.in_(['completed','partial']))
+            query=query.order_by((EnterpriseImport.state=='completed').desc())
+        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        for record in db.scalars(query.order_by(EnterpriseImport.completed_at.desc(),EnterpriseImport.started_at.desc())):
+            if not binding:return record
+            task=db.get(Task,record.task_id)
+            code=(task.result or {}).get('company_code') if task else None
+            if code is None:
+                # Legacy imports retain the immutable company code in their
+                # captured financial request, never in the mutable binding.
+                codes=set()
+                for params in db.scalars(select(EnterpriseFinancialData.request_params).where(EnterpriseFinancialData.import_id==record.id)):
+                    value=(params or {}).get('code')
+                    if isinstance(value,list):value=value[0] if len(value)==1 else None
+                    if value:codes.add(str(value))
+                code=next(iter(codes)) if len(codes)==1 else None
+            if code==binding.company_code:return record
+        return None
 
     def enterprise_status_view(db,pid):
         binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
@@ -299,6 +318,9 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
             candidates=collector.search(payload.query or p.name)
             return {'candidates':[{'code':item.code,'name':item.name,'identity':item.identity} for item in candidates]}
         binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        active=db.scalar(select(Task).where(Task.project_id==pid,Task.kind=='enterprise_import',Task.state.in_(['queued','running'])))
+        if active and binding and binding.company_code!=payload.company_code:
+            raise HTTPException(409,'enterprise_import_in_progress')
         if not binding:
             binding=EnterpriseBinding(project_id=pid,company_code=payload.company_code,company_name=payload.company_name,
                                       identity={},created_by=user.id,created_at=time.time());db.add(binding);db.flush()
@@ -327,13 +349,38 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
         return task_view(task)
 
     @app.get('/api/projects/{pid}/enterprise/data')
-    def enterprise_data(pid:str,category:str|None=None,module_key:str|None=None,user=Depends(current),db=Depends(session)):
+    def enterprise_data(pid:str,category:str|None=None,module_key:str|None=None,export_format:str|None=None,
+                        summary_only:bool=False,import_id:str='',window_years:int=0,trend_key:str='',
+                        report:str='all',start:str='',end:str='',descending:bool=True,hide_empty:bool=True,
+                        unit:str='万元',decimals:int=2,expected_hash:str='',scopes:str='',data_kinds:str='',currency:str='',rate:str='',user=Depends(current),db=Depends(session)):
         project(db,pid,user);record=latest_enterprise_import(db,pid,readable=True)
-        if not record:return {'import_id':None,'modules':[]}
+        if import_id and (not record or import_id!=record.id):raise HTTPException(409,'enterprise_source_changed')
+        if not record:
+            if export_format is not None:raise HTTPException(404,'enterprise_data_not_found')
+            return {'import_id':None,'modules':[]}
         query=select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id==record.id)
         if category:query=query.where(EnterpriseFinancialData.category==category)
         if module_key:query=query.where(EnterpriseFinancialData.module_key==module_key)
+        if summary_only and export_format is None:
+            fields=('category','module_key','module_name','module_order','endpoint_path','request_params',
+                    'response_sha256','state','error','collected_at')
+            summaries=db.execute(query.with_only_columns(*(getattr(EnterpriseFinancialData,key) for key in fields))
+                                 .order_by(EnterpriseFinancialData.module_order)).mappings().all()
+            return {'import_id':record.id,'modules':[dict(row) for row in summaries]}
         rows=db.scalars(query.order_by(EnterpriseFinancialData.module_order)).all()
+        if expected_hash and (len(rows)!=1 or expected_hash!=rows[0].response_sha256):raise HTTPException(409,'enterprise_source_changed')
+        if export_format is not None:
+            if export_format!='xlsx' or not module_key or len(rows)!=1:raise HTTPException(400,'invalid_export_options')
+            from .enterprise_export import export_enterprise_workbook,select_currency_variant
+            from urllib.parse import quote
+            try:
+                selected=select_currency_variant(rows[0],currency,rate)
+                content=export_enterprise_workbook(selected,report=report,start=start,end=end,descending=descending,hide_empty=hide_empty,unit=unit,decimals=decimals,scopes=scopes,data_kinds=data_kinds,window_years=window_years,trend_key=trend_key)
+            except ValueError as error:
+                raise HTTPException(400,'invalid_export_options') from error
+            filename=re.sub(r'[\\/:*?"<>|\r\n]','_',rows[0].module_name or module_key)+'.xlsx'
+            return Response(content,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            headers={'Content-Disposition':"attachment; filename*=UTF-8''"+quote(filename),'Cache-Control':'private, no-store'})
         return {'import_id':record.id,'modules':[{'category':row.category,'module_key':row.module_key,'module_name':row.module_name,
             'module_order':row.module_order,'endpoint_path':row.endpoint_path,'request_params':row.request_params,
             'raw_payload':row.raw_payload,'parsed_payload':row.parsed_payload,'response_sha256':row.response_sha256,

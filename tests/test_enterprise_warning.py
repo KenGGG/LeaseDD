@@ -17,11 +17,85 @@ SEARCH = "/finchinaAPP/v1/finchina-search/v1/multipleSearch"
 REPORTS = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports"
 
 
+def test_legacy_history_uses_source_nested_options_and_comma_separated_dates():
+    from leasedd.enterprise_warning import legacy_history_request_params
+    filters=[{'list':[{'list':[
+        {'parameterName':'auditYear','list':[{'name':'自定义','value':'2024,2026'}]},
+        {'parameterName':'reportDateType','list':[{'value':'20260630'},{'value':'1231'},{'value':'0630'}]},
+        {'parameterName':'dataType','list':[{'value':'1'},{'value':'2'},{'value':'3'}]},
+    ]}]}]
+    original={'_t':'1227','reportDate':'20251231','dataType':'1','code':'company'}
+    selected=legacy_history_request_params(original,filters)
+    assert selected['reportDate']=='20240630,20241231,20250630,20251231,20260630'
+    assert selected['dataType']=='1,2,3'
+    assert selected['_t']=='1227' and selected['code']=='company'
+    assert original['reportDate']=='20251231'
+    with pytest.raises(EnterpriseWarningError):legacy_history_request_params(original,[])
+
+
+def test_analysis_history_uses_filter_contract_without_inventing_scope_for_per_share():
+    from leasedd.enterprise_warning import analysis_request_params
+    filters=[{'parameterName':'reportDateType','children':[{'value':'20260630'},{'value':'1231'},{'value':'0630'}]},
+             {'parameterName':'auditYear','children':[{'name':'5Y','value':'5'},{'name':'自定义','value':'2024'}]}]
+    result=analysis_request_params({'pageCode':'source-page','auditYear':'5'},filters)
+    assert result['auditYear']=='2024,2025,2026'
+    assert result['reportDateType']=='20260630,1231,0630'
+    assert 'reportRange' not in result
+    filters.append({'parameterName':'reportRange','children':[{'value':'1'},{'value':'2'}]})
+    assert analysis_request_params({},filters)['reportRange']=='1,2'
+
+
+def test_history_parameters_use_source_years_and_latest_date_without_mutation():
+    from leasedd.enterprise_warning import history_request_params
+    original={'reportDate':['20260630','20251231'],'mergeRange':'1,2','unitCode':'4'}
+    result=history_request_params(original,['2026','2025','2013'])
+    assert result['auditYear']=='2013,2025,2026'
+    assert result['reportDate']==['20260630','20260331','20251231','20250930','20250630','20250331','20131231','20130930','20130630','20130331']
+    assert result['mergeRange']=='1,2'
+    assert result['unitCode']=='4'
+    assert result['displayCurrency']=='O'
+    assert result['rateType']=='1'
+    assert original['reportDate']==['20260630','20251231']
+    with pytest.raises(EnterpriseWarningError):history_request_params(original,[])
+
+
+def test_history_base_request_does_not_inherit_stale_currency_or_unit():
+    from leasedd.enterprise_warning import history_request_params
+    result=history_request_params({'reportDate':['20251231'],'unitCode':'8','displayCurrency':'USD','rateType':'2'},['2025'])
+    assert (result['unitCode'],result['displayCurrency'],result['rateType'])==('4','O','1')
+
+
+@pytest.mark.parametrize('child,scopes,kinds',[
+    ('mainIndicatorsF9','1,2','1'),('assetsDebt','1,2,3,4','1,3,2,4,5,6'),
+    ('profit','1,2,3,4','1,2,4'),('cashFlow','1,2,3,4','1,2')])
+def test_history_requests_every_verified_scope_and_kind(child,scopes,kinds):
+    from leasedd.enterprise_warning import history_request_params
+    result=history_request_params({'childType':child,'reportDate':['20251231'],'mergeRange':'1','dataType':'1'},['2025'])
+    assert (result['mergeRange'],result['dataType'])==(scopes,kinds)
+
+
 def test_module_catalog_covers_all_current_financial_navigation_entries():
-    assert len(MODULES) == 21
+    assert len(MODULES) == 40
     assert [module[0] for module in MODULES[-4:]] == [
         "restricted_assets", "finance_costs", "nonrecurring_gains_losses", "long_term_receivables"
     ]
+    notes = {module[1]: module[5] for module in MODULES if module[2] == 'notes'}
+    assert notes['应收账款账龄分析']['child_type'] == 'notes_AccReceivableAging'
+    assert notes['前五名其他应收款']['menu_parent'] == '其他应收款'
+    assert notes['账龄超过1年的重要其他应付款']['child_type'] == 'notes_FinImportantOthPayables'
+    assert notes['货币资金']['child_type']=='notes_MonetaryResources'
+    assert notes['主要销售客户']['child_type']=='notes_MajorCustomers'
+    assert notes['审计报告']['child_type']=='notes_AuditRep'
+    assert notes['按款项性质分类']['child_type']=='notes_FinOthAccReceivableClassifybyProperty'
+    assert notes['应付账款账龄分析']['child_type']=='notes_FinPayablesAging'
+    assert notes['其他应付款账龄分析']['child_type']=='notes_FinOthpayablesAging'
+    assert notes['预付款项账龄分析']['child_type']=='notes_FinPrepaymentsAging'
+    assert notes['前五名预付款']['child_type']=='notes_FinPrePaymentsTopFive'
+    assert notes['预收款项账龄分析']['child_type']=='notes_FinDepositreceivedAging'
+    assert notes['账龄超过1年的重要预收款']['child_type']=='notes_FinImportantDepositReceived'
+    for name in ['账龄超过1年的重要预付款','前五名应付款','前五名预收款','前五名其他应付款']:
+        assert notes[name]['menu_only'] is True
+        assert 'child_type' not in notes[name]
 
 
 def test_pure_parsers_preserve_strings_and_nulls():
@@ -161,6 +235,22 @@ def test_main_business_ignores_other_legacy_get_data_responses():
     assert collected.parsed["rows"][0]["values"] == ["100"]
 
 
+def test_currency_variants_preserve_each_response_and_default_disclosed_values():
+    module=EnterpriseModule('balance_sheet','资产负债表','statements',REPORTS,1)
+    def response(value):return {'data':{'head':['报告期','资产总计'],'key':['date','assets'],'value':[['2025年年报',value]]}}
+    original=response('100');usd=response('14.25')
+    session=FakeSession([(REPORTS,original,{'displayCurrency':'O','rateType':'1','unitCode':'4'},'currency_variant'),
+                         (REPORTS,usd,{'displayCurrency':'USD','rateType':'2','unitCode':'4'},'currency_variant')])
+    result=QyjCollector(session_factory=lambda:session).collect_module('a',module)
+    assert result.parsed['rows'][0]['values']==['100']
+    assert result.raw['responses'][0]['payload']==original
+    assert result.raw['responses'][1]['payload']==usd
+    assert result.parsed['variants'][1]['parsed']['rows'][0]['values']==['14.25']
+    assert result.parsed['variants'][1]['request_params']['rateType']=='2'
+    assert result.module.request_params['displayCurrency']=='O'
+    assert session.closed
+
+
 def test_restricted_assets_uses_legacy_matrix_response():
     module = EnterpriseModule("restricted_assets", "受限资产", "notes", "/getData.action", 17)
     data = {"data": {
@@ -189,6 +279,35 @@ def test_long_term_receivables_preserves_confirmed_empty_response():
     assert collected.parsed == {"head": [], "values": [], "rows": [], "metadata": {"empty": True}}
 
 
+@pytest.mark.parametrize('data',[{'leftTreeShow':True},{'leftTreeShow':True,'head':['科目'],'value':[]}])
+def test_menu_only_response_requires_matching_disabled_evidence_not_just_left_tree_show(data):
+    module=EnterpriseModule('long_term_receivables','长期应收款','notes','/getCompanyF9Data',20)
+    raw={'returncode':0,'data':data}
+    def collect(evidence):
+        session=FakeSession([('https://x/getCompanyF9Data',raw,{'source_menu':evidence})])
+        return QyjCollector(session_factory=lambda:session).collect_module('company',module)
+    for evidence in ({},{'disabled':False,'name':'长期应收款','company_code':'company'},
+                     {'disabled':True,'name':'长期应收款','company_code':'other'}):
+        with pytest.raises(EnterpriseWarningError):collect(evidence)
+    result=collect({'disabled':True,'name':'长期应收款','company_code':'company'})
+    assert result.raw==raw
+    assert result.parsed['metadata']['unavailable'] is True
+    assert result.parsed['metadata'].get('empty') is not True
+
+
+def test_dom_only_menu_keeps_explicit_evidence_without_fabricating_a_financial_response():
+    module=EnterpriseModule('payables_top_five','前五名应付款','notes','/detail/enterprise/financialNotes',20,{'menu_only':True})
+    menu={'name':module.name,'company_code':'company','disabled':True}
+    raw={'source':'dom_menu','menu':menu}
+    def collect(value):
+        session=FakeSession([('https://www.qyyjt.cn/detail/enterprise/financialNotes',value,{'source_menu':menu})])
+        return QyjCollector(session_factory=lambda:session).collect_module('company',module)
+    result=collect(raw)
+    assert result.raw==raw and result.parsed['metadata']['unavailable'] is True
+    assert 'data' not in result.raw
+    with pytest.raises(EnterpriseWarningError):collect({'source':'dom_menu','menu':{**menu,'disabled':False}})
+
+
 def test_collector_preserves_post_request_parameters():
     module = EnterpriseModule("cash_analysis", "现金流量", "analysis", "/header-and-data", 9)
     session = FakeSession([(
@@ -201,6 +320,12 @@ def test_collector_preserves_post_request_parameters():
     assert collected.module.request_params == {
         "pageCode": "web-FinancialanalysisF9-Cashfow", "unit": "4", "reportRange": "1"
     }
+
+
+def test_analysis_response_cannot_be_saved_under_another_page_code():
+    module=EnterpriseModule('profitability','盈利能力','analysis','/header-and-data',1,{'pageCode':'profit-page'})
+    session=FakeSession([('https://x/header-and-data',{'data':{'fieldList':[{'name':'比率','value':'ratio'}],'dataList':[{'reportDate':'2025','ratio':'1'}]}},{'pageCode':'other-page'})])
+    with pytest.raises(EnterpriseWarningError):QyjCollector(session_factory=lambda:session).collect_module('a',module)
 
 
 def test_collector_filters_menu_to_financial_modules():

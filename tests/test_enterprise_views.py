@@ -14,6 +14,16 @@ def row(module_key, module_name, statement_type, names, values, unit="万元", k
     )
 
 
+def test_percentage_columns_remain_in_raw_module_but_not_statement_inputs():
+    module = row('balance','资产负债表','balance_sheet',
+                 ['报表类型','资产总计'], [['合并期末','合并期末同比(%)'],['100','12.5']],
+                 keys=['dataType','assets'])
+    views = enterprise_statement_views(SimpleNamespace(id='import-1'),[module])
+    assert len(views) == 1
+    assert views[0]['items'][0]['raw_value'] == '100'
+    assert module.parsed_payload['rows'][1]['values'] == ['100','12.5']
+
+
 def test_enterprise_views_preserve_evidence_unknowns_and_all_periods():
     module = row("balance", "资产负债表", "balance_sheet", ["资产总计", "自定义项目"], [["100.00", "90.00"], ["1", None]])
     views = enterprise_statement_views(SimpleNamespace(id="import-1"), [module])
@@ -87,3 +97,19 @@ def test_enterprise_views_clean_prefixed_formula_labels():
     assert concepts["加:期初现金及现金等价物余额"] == "beginning_cash_balance"
     supplemental = [item for view in views for item in view["items"] if item["evidence"]["source_key"] == "130065"]
     assert all(item["concept"].startswith("disclosed_") for item in supplemental)
+
+
+def test_mixed_scope_columns_use_disclosed_scope_currency_and_export_units():
+    module = row('balance','资产负债表','balance_sheet',
+        ['报表类型','截止日期','显示币种','转换汇率','资产总计'],
+        [['合并期末','母公司期末'],['2025-12-31','2025-12-31'],['美元','美元'],['7.20','7.20'],['1.25','0.80']],
+        keys=['dataType','deadline','displayCurrency','conversionRate','110100'])
+    module.request_params.update(mergeRange='1,2',unit='元',unitCode='8',displayCurrency='USD')
+    module.parsed_payload['periods']=['2025年年报','2025年年报']
+    module.parsed_payload['metadata']={'headExport':['指标名称','报表类型','截止日期','显示币种','转换汇率','资产总计（亿元）']}
+    views=enterprise_statement_views(SimpleNamespace(id='import-1'),[module])
+    assert [view['scope'] for view in views]==['consolidated','parent']
+    assert [view['period_normalized'] for view in views]==['2025-12-31','2025-12-31']
+    assert [view['currency'] for view in views]==['USD','USD']
+    assert [view['items'][0]['normalized_value'] for view in views]==['125000000.00','80000000.00']
+    assert all(len(view['items'])==1 for view in views)

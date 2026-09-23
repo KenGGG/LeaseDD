@@ -61,6 +61,47 @@ def test_exactly_four_routes_and_manual_search_then_binding(api):
         assert duplicate["id"] == result["id"]
 
 
+def test_active_import_cannot_rebind_to_another_company(api):
+    app, (pid, admin_id, _, _) = api
+    route = endpoint(app, '/api/projects/{pid}/enterprise/import', 'POST')
+    with app.state.db() as db:
+        user = db.get(User, admin_id)
+        route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=user, db=db)
+        with pytest.raises(HTTPException) as error:
+            route(pid, EnterpriseImportRequest(company_code='b', company_name='乙公司'), user=user, db=db)
+        assert error.value.status_code == 409
+        assert db.scalar(select(EnterpriseBinding)).company_code == 'a'
+
+
+def test_new_queued_import_is_visible_in_status(api):
+    app, (pid, admin_id, _, _) = api
+    route = endpoint(app, '/api/projects/{pid}/enterprise/import', 'POST')
+    status = endpoint(app, '/api/projects/{pid}/enterprise', 'GET')
+    with app.state.db() as db:
+        user = db.get(User, admin_id)
+        route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=user, db=db)
+        task = db.scalar(select(Task));task.state = 'completed'
+        record = db.scalar(select(EnterpriseImport));record.state = 'completed';record.completed_at = time.time()
+        db.commit()
+        newest = route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=user, db=db)
+        assert newest['state'] == 'queued'
+        assert status(pid, user=user, db=db)['import']['state'] == 'queued'
+
+
+def test_rebinding_does_not_relabel_previous_company_financial_data(api):
+    app,(pid,admin_id,_,_)=api
+    route=endpoint(app,'/api/projects/{pid}/enterprise/import','POST')
+    data=endpoint(app,'/api/projects/{pid}/enterprise/data','GET')
+    with app.state.db() as db:
+        user=db.get(User,admin_id)
+        route(pid,EnterpriseImportRequest(company_code='a',company_name='甲公司'),user=user,db=db)
+        task=db.scalar(select(Task));task.state='completed'
+        record=db.scalar(select(EnterpriseImport));record.state='completed';record.completed_at=time.time()
+        db.commit()
+        route(pid,EnterpriseImportRequest(company_code='b',company_name='乙公司'),user=user,db=db)
+        assert data(pid,user=user,db=db)['import_id'] is None
+
+
 def test_permissions_status_data_and_retry_audit(api):
     app, (pid, admin_id, writer_id, outsider_id) = api
     import_route = endpoint(app, "/api/projects/{pid}/enterprise/import", "POST")
@@ -110,3 +151,98 @@ def test_readable_enterprise_import_replaces_pdf_statement_view(api):
         assert len(views) == 1
         assert views[0]["source_type"] == "enterprise_warning"
         assert views[0]["statement_type"] == "balance_sheet"
+
+
+def test_new_partial_import_does_not_replace_previous_complete_data(api):
+    app, (pid, admin_id, _, _) = api
+    data_route = endpoint(app, "/api/projects/{pid}/enterprise/data", "GET")
+    status_route = endpoint(app, "/api/projects/{pid}/enterprise", "GET")
+    with app.state.db.begin() as db:
+        tasks = [Task(project_id=pid,kind="enterprise_import",mode="qyyjt",input_revision=0,input_hash="a"*64,created_by=admin_id,created_at=n) for n in (1,3)]
+        db.add_all(tasks); db.flush()
+        complete = EnterpriseImport(project_id=pid, task_id=tasks[0].id, state="completed", quality_state="passed", module_status={}, started_at=1, completed_at=2)
+        partial = EnterpriseImport(project_id=pid, task_id=tasks[1].id, state="partial", quality_state="passed_with_gaps", module_status={}, started_at=3, completed_at=4)
+        db.add_all([complete, partial]); db.flush()
+        complete_id, partial_id = complete.id, partial.id
+    with app.state.db() as db:
+        assert data_route(pid, category=None, module_key=None, user=db.get(User, admin_id), db=db)["import_id"] == complete_id
+        assert status_route(pid, user=db.get(User, admin_id), db=db)["import"]["id"] == partial_id
+
+
+def test_excel_export_reuses_data_route_and_project_authorization(api):
+    from io import BytesIO
+    import openpyxl
+    app, (pid, admin_id, _, outsider_id) = api
+    import_route=endpoint(app,'/api/projects/{pid}/enterprise/import','POST')
+    data_route=endpoint(app,'/api/projects/{pid}/enterprise/data','GET')
+    with app.state.db() as db:
+        import_route(pid,EnterpriseImportRequest(company_code='a',company_name='甲公司'),user=db.get(User,admin_id),db=db)
+    with app.state.db.begin() as db:
+        record=db.scalar(select(EnterpriseImport).where(EnterpriseImport.project_id==pid))
+        record.state='completed';record.completed_at=time.time()
+        db.add(EnterpriseFinancialData(import_id=record.id,category='indicators',module_key='main_indicators',module_name='主要财务指标',module_order=0,
+            endpoint_path='/getMainIndicators',request_params={},raw_payload={'original':'unchanged'},
+            parsed_payload={'periods':['2025年年报'],'rows':[{'name':'营业收入','key':'220006','unit':'万元','values':['100.25']},{'name':'报表类型','key':'dataType','values':['合并期末']}]},
+            response_sha256='a'*64,state='completed',collected_at=time.time()))
+    with app.state.db() as db:
+        response=data_route(pid,module_key='main_indicators',export_format='xlsx',user=db.get(User,admin_id),db=db)
+        assert response.media_type=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        book=openpyxl.load_workbook(BytesIO(response.body));assert book.active['C3'].value==100.25;book.close()
+        assert '.xlsx' in response.headers['content-disposition']
+        assert db.scalar(select(EnterpriseFinancialData)).raw_payload=={'original':'unchanged'}
+        trend=data_route(pid,module_key='main_indicators',export_format='xlsx',trend_key='220006',report='annual',scopes='合并期末',user=db.get(User,admin_id),db=db)
+        book=openpyxl.load_workbook(BytesIO(trend.body))
+        assert list(book.active.values)==[('序号','报告期','营业收入（万元）'),('1','2025年年报',100.25)]
+        book.close()
+        with pytest.raises(HTTPException) as denied:
+            data_route(pid,module_key='main_indicators',export_format='xlsx',trend_key='220006',report='annual',scopes='合并期末',user=db.get(User,outsider_id),db=db)
+        assert denied.value.status_code==403
+        with pytest.raises(HTTPException) as stale:
+            data_route(pid,module_key='main_indicators',export_format='xlsx',expected_hash='b'*64,user=db.get(User,admin_id),db=db)
+        assert stale.value.status_code==409
+
+
+def test_excel_request_without_readable_import_is_not_a_json_file_disguised_as_excel(api):
+    app,(pid,admin_id,_,_)=api
+    data_route=endpoint(app,'/api/projects/{pid}/enterprise/data','GET')
+    with app.state.db() as db:
+        with pytest.raises(HTTPException) as missing:
+            data_route(pid,module_key='main_indicators',export_format='xlsx',user=db.get(User,admin_id),db=db)
+        assert missing.value.status_code==404
+
+
+def test_module_index_skips_large_json_and_detail_is_pinned_to_readable_import(api):
+    from sqlalchemy import event
+    app,(pid,admin_id,_,outsider_id)=api
+    create=endpoint(app,'/api/projects/{pid}/enterprise/import','POST')
+    data=endpoint(app,'/api/projects/{pid}/enterprise/data','GET')
+    with app.state.db() as db:
+        create(pid,EnterpriseImportRequest(company_code='a',company_name='甲公司'),user=db.get(User,admin_id),db=db)
+    with app.state.db.begin() as db:
+        record=db.scalar(select(EnterpriseImport));record.state='completed';record.completed_at=time.time();record_id=record.id
+        for index,key in enumerate(['balance_sheet','income_statement']):
+            db.add(EnterpriseFinancialData(import_id=record.id,category='statements',module_key=key,module_name=key,module_order=index,
+                endpoint_path='/reports',request_params={'code':'a'},raw_payload={'large':'x'*100000},parsed_payload={'rows':[]},
+                response_sha256='a'*64,state='completed',collected_at=time.time()))
+        # Exercise legacy company identity lookup too: it must not fetch payloads.
+        task=db.get(Task,record.task_id);task.result={}
+    statements=[]
+    def capture(connection,cursor,statement,parameters,context,many):statements.append(statement)
+    with app.state.db() as db:
+        user=db.get(User,admin_id)
+        event.listen(app.state.engine,'before_cursor_execute',capture)
+        try:summary=data(pid,summary_only=True,user=user,db=db)
+        finally:event.remove(app.state.engine,'before_cursor_execute',capture)
+        assert summary['import_id']==record_id and len(summary['modules'])==2
+        assert all('raw_payload' not in m and 'parsed_payload' not in m for m in summary['modules'])
+        assert not any('raw_payload' in sql or 'parsed_payload' in sql for sql in statements)
+        detail=data(pid,module_key='balance_sheet',import_id=record_id,user=user,db=db)
+        assert [m['module_key'] for m in detail['modules']]==['balance_sheet']
+        assert detail['modules'][0]['raw_payload']=={'large':'x'*100000}
+        with pytest.raises(HTTPException) as changed:
+            data(pid,module_key='balance_sheet',import_id=record_id,expected_hash='b'*64,user=user,db=db)
+        assert changed.value.status_code==409
+        with pytest.raises(HTTPException) as stale:data(pid,module_key='balance_sheet',import_id='old',user=user,db=db)
+        assert stale.value.status_code==409
+        with pytest.raises(HTTPException) as denied:data(pid,summary_only=True,user=db.get(User,outsider_id),db=db)
+        assert denied.value.status_code==403

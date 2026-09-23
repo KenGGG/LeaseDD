@@ -43,6 +43,14 @@ services:
         condition: service_completed_successfully
   api:
     <<: *app
+    environment:
+      <<: *env
+      QYJ_BRIDGE_SOCKET: /run/leasedd-enterprise/collector.sock
+    group_add:
+      - "${LEASEDD_BROWSER_BRIDGE_GID:-1000}"
+    volumes:
+      - project_files:/data/files
+      - ${LEASEDD_BROWSER_BRIDGE_DIR:-/data/Projects/LeaseDD/runtime/enterprise-browser}:/run/leasedd-enterprise
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -50,6 +58,14 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "leasedd.worker"]
+    environment:
+      <<: *env
+      QYJ_BRIDGE_SOCKET: /run/leasedd-enterprise/collector.sock
+    group_add:
+      - "${LEASEDD_BROWSER_BRIDGE_GID:-1000}"
+    volumes:
+      - project_files:/data/files
+      - ${LEASEDD_BROWSER_BRIDGE_DIR:-/data/Projects/LeaseDD/runtime/enterprise-browser}:/run/leasedd-enterprise
     depends_on:
       bootstrap:
         condition: service_completed_successfully

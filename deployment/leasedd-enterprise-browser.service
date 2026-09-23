@@ -1,0 +1,16 @@
+[Unit]
+Description=LeaseDD local Enterprise Alert browser connection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/Projects/LeaseDD
+Environment=PYTHONPATH=/data/Projects/LeaseDD/src
+Environment=QYJ_PROFILE_DIR=/data/ken/.cache/quantradar/qyj-profile
+ExecStart=/data/Projects/LeaseDD/.venv/bin/python -m leasedd.enterprise_browser_bridge --socket /data/Projects/LeaseDD/runtime/enterprise-browser/collector.sock
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

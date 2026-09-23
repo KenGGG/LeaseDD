@@ -1,0 +1,212 @@
+from io import BytesIO
+from types import SimpleNamespace
+
+import openpyxl
+
+from leasedd.enterprise_export import export_enterprise_workbook
+
+
+def test_indicator_trend_export_keeps_disclosed_yoy_and_one_scope_without_calculation():
+    module=SimpleNamespace(module_key='main_indicators',module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报','2025年年报','2024年年报'],'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末','母公司期末','合并期末']},
+            {'key':'220006','name':'营业总收入','unit':'万元','values':['871649.239191','10000',None]},
+            {'key':'220006_2','name':'同比','unit':'%','values':['14.495727','2',None]},
+            {'key':'other','name':'无关科目','unit':'万元','values':['1','2','3']}]})
+    book,values=rows(export_enterprise_workbook(module,trend_key='220006',report='annual',scopes='合并期末',unit='亿元'))
+    assert values[0]==('序号','报告期','营业总收入（亿元）','同比（%）')
+    assert values[1]==('1','2025年年报',87.1649239191,14.495727)
+    assert values[2]==('2','2024年年报',None,None)
+    assert module.parsed_payload['rows'][1]['values'][2] is None
+    book.close()
+
+
+def test_indicator_trend_export_rejects_unknown_rows_and_ambiguous_scope():
+    import pytest
+    module=SimpleNamespace(module_key='main_indicators',module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报'],'rows':[{'key':'220006','name':'营业总收入','values':['1']}]})
+    for options in ({'trend_key':'unknown','scopes':'合并期末'}, {'trend_key':'220006','scopes':'all'}, {'trend_key':'220006','scopes':'合并期末','report':'all'}):
+        with pytest.raises(ValueError,match='invalid_trend_options'):
+            export_enterprise_workbook(module,**options)
+
+
+def test_trend_export_currency_comes_from_selected_period_cells():
+    module=SimpleNamespace(module_key='main_indicators',module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报','2024年年报'],'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末','合并期末']},
+            {'key':'displayCurrency','name':'显示币种','values':['美元','美元']},
+            {'key':'220006','name':'营业总收入','unit':'万元','values':['10000','20000']},
+            {'key':'220006_2','name':'同比','unit':'%','values':['3','4']}]})
+    options={'trend_key':'220006','report':'annual','scopes':'合并期末','unit':'亿元'}
+    book,values=rows(export_enterprise_workbook(module,**options))
+    assert values[0]==('序号','报告期','营业总收入（亿元美元）','同比（%）')
+    book.close()
+    module.parsed_payload['rows'][1]['values']=['美元','人民币']
+    book,values=rows(export_enterprise_workbook(module,**options))
+    assert values[0]==('序号','报告期','营业总收入（亿元）','同比（%）','币种')
+    assert values[1][-1]=='美元' and values[2][-1]=='人民币'
+    assert values[1][2]==1 and values[2][2]==2
+    book.close()
+
+
+def test_currency_selection_uses_saved_variant_not_a_local_exchange_rate():
+    from leasedd.enterprise_export import select_currency_variant
+    module=SimpleNamespace(module_name='资产负债表',module_key='balance_sheet',category='statements',request_params={},response_sha256='a'*64,
+        raw_payload={'responses':[{'payload':{'data':'source-usd'}}]},
+        parsed_payload={'variants':[{'request_params':{'displayCurrency':'USD','rateType':'2'},'parsed':{'periods':['2025年年报'],'rows':[{'name':'资产','values':['14.25']}]}}]})
+    selected=select_currency_variant(module,'USD','2')
+    assert selected.parsed_payload['rows'][0]['values']==['14.25']
+    assert selected.raw_payload=={'data':'source-usd'}
+    assert selected.request_params['displayCurrency']=='USD'
+    import pytest
+    with pytest.raises(ValueError):select_currency_variant(module,'EUR','1')
+
+
+def test_source_disabled_module_cannot_be_exported_as_an_empty_financial_report():
+    import pytest
+    module=SimpleNamespace(parsed_payload={'rows':[],'metadata':{'unavailable':True}})
+    with pytest.raises(ValueError,match='source_module_unavailable'):
+        export_enterprise_workbook(module)
+
+
+def test_export_supports_source_toolbar_billion_yuan_unit():
+    module=SimpleNamespace(module_name='资产负债表',category='statements',request_params={},raw_payload={},
+        parsed_payload={'periods':['2025年年报'],'rows':[{'name':'资产','unit':'万元','values':['100000']}]})
+    book,values=rows(export_enterprise_workbook(module,unit='十亿元'))
+    assert values[2][2]==1
+    book.close()
+
+
+def test_export_three_year_window_matches_source_quarter_cutoff_not_calendar_years():
+    module=SimpleNamespace(module_name='资产负债表',category='statements',request_params={},raw_payload={},
+        parsed_payload={'periods':['2026年中报','2023年三季报','2023年中报'],'rows':[{'name':'资产','unit':'万元','values':['1','2','3']}]})
+    book,values=rows(export_enterprise_workbook(module,window_years=3))
+    assert values[1][2:]==('2026年中报','2023年三季报')
+    assert values[2][2:]==(1,2)
+    book.close()
+
+
+def rows(content):
+    book = openpyxl.load_workbook(BytesIO(content), data_only=False)
+    return book, list(book.active.values)
+
+
+def test_business_export_filters_standalone_types_and_uses_request_unit_only_for_amounts():
+    module=SimpleNamespace(module_key='main_business',module_name='主营构成',category='notes',request_params={'unitCode':'4'},raw_payload={},parsed_payload={
+        'periods':['2025年年报']*3,'rows':[
+            {'key':'dataType','name':'数据类型','values':['原始报表','同比','占收入比']},
+            {'key':'120050','name':'营业收入','unit':'','values':['10000','12.5','100']},
+            {'key':'900042','name':'毛利率(%)','unit':'','values':['20','2','3']},
+            {'key':'conversionRate','name':'转换汇率','unit':'','values':['7','7','7']}]})
+    book,values=rows(export_enterprise_workbook(module,unit='亿元'))
+    assert values[2][1:]==(1,12.5,100)
+    assert values[3][1:]==(20,2,3)
+    assert values[4][1:]==('7','7','7')
+    book.close()
+    book,values=rows(export_enterprise_workbook(module,unit='亿元',data_kinds='同比'))
+    assert values[2][1:]==(12.5,)
+    book.close()
+
+
+def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
+    module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
+        parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[
+            {'key':'cash','name':'货币资金','unit':'元','values':['1039981.78','0',None]},
+            {'key':'unsafe','name':'=HYPERLINK("bad")','unit':'','values':[None,None,None]},
+        ], 'metadata':{'headExport':['指标名称','货币资金（万元）','其他']}})
+    original = str(module.parsed_payload)
+    content = export_enterprise_workbook(module, report='annual', start='2025', unit='亿元', decimals=2)
+    assert content.startswith(b'PK')
+    book, values = rows(content)
+    assert values == [('数据来源：企业预警通',None,None),('序号','指标名称','2025年年报'),(1,'货币资金（亿元）',0)]
+    assert book.active.freeze_panes == 'C3'
+    assert book.active['C3'].number_format == '#,##0.00'
+    assert str(module.parsed_payload) == original
+    book.close()
+
+
+def test_mixed_percentage_columns_are_not_scaled_by_amount_unit():
+    module=SimpleNamespace(module_name='资产负债表',category='statements',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报','2025年年报'],'rows':[
+            {'name':'报表类型','key':'dataType','values':['合并期末','合并期末同比(%)']},
+            {'name':'资产总计','key':'assets','unit':'万元','values':['10000','12.5']}]})
+    book,values=rows(export_enterprise_workbook(module,unit='亿元'))
+    assert values[-1][2:]==(1,12.5)
+    book.close()
+    book,values=rows(export_enterprise_workbook(module,unit='亿元',scopes='合并期末',data_kinds='同比增长率'))
+    assert values[-1][2:]==(12.5,)
+    book.close()
+
+
+def test_analysis_export_filters_report_range_metadata():
+    module=SimpleNamespace(module_name='盈利能力',category='analysis',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报','2025年年报'],'rows':[
+            {'name':'报表类型','key':'reportRange','values':['合并期末','母公司期末']},
+            {'name':'净利率','key':'ratio','unit':'%','values':['10','8']}]})
+    book,values=rows(export_enterprise_workbook(module,scopes='母公司期末'))
+    assert values[-1][1:]==(8,)
+    book.close()
+
+
+def test_export_preserves_large_strings_and_neutralizes_formula_cells():
+    module = SimpleNamespace(module_name='主要财务指标', category='indicators', request_params={}, raw_payload={},
+        parsed_payload={'periods':['2025年年报'], 'rows':[
+            {'key':'x','name':'=HYPERLINK("bad")','unit':'元','values':['900719925474099312345.67']},
+        ]})
+    book, values = rows(export_enterprise_workbook(module, unit='元'))
+    assert values[2] == (1,'=HYPERLINK("bad")（元）','900,719,925,474,099,312,345.67')
+    assert book.active['B3'].data_type == 's'
+    assert book.active['C3'].data_type == 's'
+    book.close()
+
+
+def test_excel_numeric_cells_keep_underlying_precision_like_source_export():
+    module = SimpleNamespace(module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
+        'periods':['2026年中报'],'rows':[{'name':'营业总收入','key':'revenue','unit':'万元','values':['1039981.78']}],
+    })
+    book, values=rows(export_enterprise_workbook(module,unit='亿元',decimals=2))
+    assert values[2][2]==103.998178
+    assert book.active['C3'].number_format=='#,##0.00'
+    book.close()
+
+
+def test_excel_precision_guard_does_not_round_before_counting_digits():
+    raw='9'*40
+    module=SimpleNamespace(module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报'],'rows':[{'name':'金额','key':'value','unit':'元','values':[raw]}],
+    })
+    book,values=rows(export_enterprise_workbook(module,unit='元'))
+    assert isinstance(values[2][2],str)
+    assert values[2][2].replace(',','')==raw+'.00'
+    book.close()
+
+
+def test_export_transposes_note_periods_and_keeps_source_formatted_amounts():
+    module = SimpleNamespace(module_name='货币资金', category='notes', request_params={}, raw_payload={},
+        parsed_payload={'head':['项目名称','现金','银行存款','合计'], 'rows':[
+            ['20260630','2.87万','','32.29亿'],['20251231','1.83万','0','19.19亿'],
+        ], 'metadata':{}})
+    book, values = rows(export_enterprise_workbook(module))
+    assert values == [('报告期','2026年中报','2025年年报'),('现金','2.87万','1.83万'),('银行存款',None,'0'),('合计','32.29亿','19.19亿')]
+    book.close()
+
+
+def test_export_keeps_customer_year_groups_and_header_orientation():
+    module = SimpleNamespace(module_name='主要销售客户', category='notes', request_params={}, raw_payload={},
+        parsed_payload={'head':[['客户名称','第一名','合计']], 'rows':[[['销售额','6.04亿','9.08亿'],['占比','31.30%','47.07%']]],'metadata':{'report':['20251231']}})
+    book, values = rows(export_enterprise_workbook(module))
+    assert values == [('客户名称','销售额','占比'),('2025年年报',None,None),('第一名','6.04亿','31.30%'),('合计','9.08亿','47.07%')]
+    book.close()
+
+
+def test_record_export_matches_report_sort_and_hidden_blank_rows():
+    module=SimpleNamespace(module_name='主要销售客户',category='notes',request_params={},raw_payload={},parsed_payload={
+        'head':[['客户名称','第一名','无披露'],['客户名称','第一名']],
+        'rows':[[['销售额','6.04亿',''],['占比','31.30%',None]],[['销售额','5.00亿']]],
+        'metadata':{'report':['20251231','20241231']}})
+    book,values=rows(export_enterprise_workbook(module,report='latest',hide_empty=True))
+    assert values==[('客户名称','销售额','占比'),('2025年年报',None,None),('第一名','6.04亿','31.30%')]
+    book.close()
+    book,values=rows(export_enterprise_workbook(module,report='annual',descending=False,hide_empty=False))
+    assert [row[0] for row in values if row[0] in {'2024年年报','2025年年报'}]==['2024年年报','2025年年报']
+    book.close()

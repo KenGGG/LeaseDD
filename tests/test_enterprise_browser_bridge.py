@@ -1,0 +1,78 @@
+import threading
+
+import pytest
+
+from leasedd.enterprise_warning import EnterpriseModule, EnterpriseWarningError, MODULES, QyjCollector
+
+
+class FakeBrowser:
+    calls = []
+
+    def perform(self, action, **kwargs):
+        self.calls.append((action, kwargs))
+        if action == 'search':
+            return [('https://www.qyyjt.cn/finchinaAPP/v1/finchina-search/v1/multipleSearch',
+                     {'returncode': 0, 'data': [{'code': 'ABC', 'name': '甲公司'}]},
+                     {'name': kwargs['name']})]
+        if kwargs['module'].key == 'balance_sheet':
+            return [('https://www.qyyjt.cn/report', {'data': {'value': [['123.45']]}}, {'code': kwargs['company_code']}, 'currency_variant')]
+        raise EnterpriseWarningError('module_interface_unverified')
+
+    def menu(self, company_code):
+        self.calls.append(('menu', company_code))
+        return [{'key': key, 'name': name, 'category': category, 'endpoint': endpoint, 'params': params}
+                for key, name, category, endpoint, _trace, params in MODULES]
+
+    def close(self):
+        self.calls.append(('close', None))
+
+
+def test_unix_bridge_reuses_three_collector_actions_without_exposing_browser_profile(tmp_path):
+    from leasedd.enterprise_browser_bridge import BrowserBrokerServer, RemoteBrowserSession
+
+    socket_path = tmp_path / 'browser.sock'
+    FakeBrowser.calls = []
+    with BrowserBrokerServer(str(socket_path), FakeBrowser) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            remote = RemoteBrowserSession(str(socket_path))
+            assert remote.menu('ABC')[0]['key'] == 'main_indicators'
+            result = remote.perform('collect', company_code='ABC', module=EnterpriseModule(*MODULES[1][:4], 1, MODULES[1][5]))
+            assert result[0][1]['data']['value'][0][0] == '123.45'
+            assert result[0][3] == 'currency_variant'
+            assert ('menu', 'ABC') in FakeBrowser.calls
+            assert not any('profile' in str(call) for call in FakeBrowser.calls)
+            with pytest.raises(EnterpriseWarningError, match='structure_changed'):
+                remote.perform('collect', company_code='ABC', module=EnterpriseModule('invented', '假栏目', 'notes', '/unknown', 999))
+            assert not any(call[0] == 'collect' and call[1].get('module').key == 'invented'
+                           for call in FakeBrowser.calls if isinstance(call[1], dict))
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+    assert not socket_path.exists()
+
+
+def test_unix_bridge_forwards_source_error_and_unavailable_socket(tmp_path):
+    from leasedd.enterprise_browser_bridge import BrowserBrokerServer, RemoteBrowserSession
+
+    socket_path = tmp_path / 'browser.sock'
+    with pytest.raises(EnterpriseWarningError, match='browser_unavailable'):
+        RemoteBrowserSession(str(socket_path)).menu('ABC')
+    with BrowserBrokerServer(str(socket_path), FakeBrowser) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            module = EnterpriseModule(*MODULES[0][:4], 0, MODULES[0][5])
+            with pytest.raises(EnterpriseWarningError, match='module_interface_unverified'):
+                RemoteBrowserSession(str(socket_path)).perform('collect', company_code='ABC', module=module)
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+
+
+def test_collector_selects_broker_only_when_explicitly_configured(monkeypatch, tmp_path):
+    from leasedd.enterprise_browser_bridge import RemoteBrowserSession
+
+    monkeypatch.setenv('QYJ_BRIDGE_SOCKET', str(tmp_path / 'browser.sock'))
+    assert isinstance(QyjCollector().session_factory(), RemoteBrowserSession)
