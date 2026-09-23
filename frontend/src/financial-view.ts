@@ -17,9 +17,9 @@ function rows(section:string, pairs:string):CatalogRow[]{
 export const catalogs:Record<FinancialStatement['statement_type'],CatalogRow[]> = {
  balance_sheet:[
   ...rows('流动资产','cash:货币资金|trading_financial_assets:交易性金融资产|notes_receivable:应收票据|accounts_receivable:应收账款|receivables_financing:应收款项融资|prepayments:预付款项|other_receivables:其他应收款|inventory:存货|contract_assets:合同资产|total_current_assets:流动资产合计'),
-  ...rows('非流动资产','fixed_assets:固定资产|construction_in_progress:在建工程|right_of_use_assets:使用权资产|intangible_assets:无形资产|total_assets:资产总计'),
+  ...rows('非流动资产','fixed_assets:固定资产|construction_in_progress:在建工程|right_of_use_assets:使用权资产|intangible_assets:无形资产|total_noncurrent_assets:非流动资产合计|total_assets:资产总计'),
   ...rows('流动负债','short_term_borrowings:短期借款|notes_payable:应付票据|accounts_payable:应付账款|contract_liabilities:合同负债|other_payables:其他应付款|current_portion_noncurrent_liabilities:一年内到期的非流动负债|total_current_liabilities:流动负债合计'),
-  ...rows('非流动负债','long_term_borrowings:长期借款|bonds_payable:应付债券|lease_liabilities:租赁负债|total_liabilities:负债合计'),
+  ...rows('非流动负债','long_term_borrowings:长期借款|bonds_payable:应付债券|lease_liabilities:租赁负债|total_noncurrent_liabilities:非流动负债合计|total_liabilities:负债合计'),
   ...rows('所有者权益','total_equity:所有者权益合计'),
  ],
  income_statement:[

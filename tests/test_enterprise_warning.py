@@ -3,6 +3,7 @@ import pytest
 from leasedd.enterprise_warning import (
     EnterpriseModule,
     EnterpriseWarningError,
+    MODULES,
     QyjCollector,
     parse_analysis,
     parse_notes,
@@ -14,6 +15,13 @@ from leasedd.enterprise_warning import (
 
 SEARCH = "/finchinaAPP/v1/finchina-search/v1/multipleSearch"
 REPORTS = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports"
+
+
+def test_module_catalog_covers_all_current_financial_navigation_entries():
+    assert len(MODULES) == 21
+    assert [module[0] for module in MODULES[-4:]] == [
+        "restricted_assets", "finance_costs", "nonrecurring_gains_losses", "long_term_receivables"
+    ]
 
 
 def test_pure_parsers_preserve_strings_and_nulls():
@@ -40,6 +48,20 @@ def test_pure_parsers_preserve_strings_and_nulls():
         "value": [["库存现金", "10", None]], "level": [1],
     }})
     assert notes["values"][0][1] is None
+
+
+def test_analysis_uses_declared_period_field_and_excludes_it_from_metrics():
+    parsed = parse_analysis({"data": {
+        "fieldList": [
+            {"name": "指标名称", "value": "reportDate2", "unit": ""},
+            {"name": "每股收益", "value": "eps", "unit": "元"},
+        ],
+        "dataList": [{"reportDate2": "2026年中报", "eps": "0.42"}],
+        "total": 1,
+    }})
+    assert parsed["periods"] == ["2026年中报"]
+    assert [row["name"] for row in parsed["rows"]] == ["每股收益"]
+    assert parsed["rows"][0]["values"] == ["0.42"]
 
 
 def test_main_business_reuses_lossless_matrix_shape_with_units():
@@ -116,6 +138,34 @@ def test_main_business_ignores_other_legacy_get_data_responses():
     ])
     collected = QyjCollector(session_factory=lambda: session).collect_module("a", module)
     assert collected.parsed["rows"][0]["values"] == ["100"]
+
+
+def test_restricted_assets_uses_legacy_matrix_response():
+    module = EnterpriseModule("restricted_assets", "受限资产", "notes", "/getData.action", 17)
+    data = {"data": {
+        "head": ["报告期", "货币资金"], "key": ["reportDateTitle", "cash"],
+        "value": [["2025-12-31", "100"]],
+    }}
+    session = FakeSession([
+        ("https://x/getData.action?pageCode=RestrictedAssets", {"data": [{"list": []}]}),
+        ("https://x/getData.action?tabName=restricted-assets&unitCode=4", data),
+    ])
+    collected = QyjCollector(session_factory=lambda: session).collect_module("a", module)
+    assert collected.parsed["periods"] == ["2025-12-31"]
+    assert collected.parsed["rows"][0]["values"] == ["100"]
+    assert collected.module.request_params["unit"] == "万元"
+
+
+def test_long_term_receivables_preserves_confirmed_empty_response():
+    module = EnterpriseModule("long_term_receivables", "长期应收款", "notes", "/getCompanyF9Data", 20)
+    raw = {"info": "暂无数据", "returncode": 200, "total": 0}
+    session = FakeSession([(
+        "https://x/getCompanyF9Data?child_type=notes_longTermReceivable", raw,
+        {"child_type": "notes_longTermReceivable"},
+    )])
+    collected = QyjCollector(session_factory=lambda: session).collect_module("a", module)
+    assert collected.raw == raw
+    assert collected.parsed == {"head": [], "values": [], "rows": [], "metadata": {"empty": True}}
 
 
 def test_collector_preserves_post_request_parameters():

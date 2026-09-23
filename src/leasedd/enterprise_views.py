@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from .finance_extract import UNIT_SCALES, normalize_source_number
 from .statement_checks import evaluate_statement_checks
-from .statement_tables import ALIASES
+from .statement_tables import ALIASES, clean_label
 
 
 def _increment(raw):
@@ -47,7 +47,9 @@ def enterprise_statement_views(import_record, module_rows):
                 values = row.get("values") or []
                 raw = values[period_index] if period_index < len(values) else None
                 source_name = str(row.get("name") or row.get("key") or "")
-                concept = ALIASES.get(source_name)
+                concept = ALIASES.get(clean_label(source_name))
+                if statement_type == "cash_flow_statement" and row.get("key") == "130065":
+                    concept = None
                 mapping = "mapped" if concept else "unmapped"
                 if not concept:
                     concept = "disclosed_" + hashlib.sha256(source_name.encode()).hexdigest()[:32]

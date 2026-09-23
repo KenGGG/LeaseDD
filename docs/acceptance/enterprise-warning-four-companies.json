@@ -5,27 +5,31 @@
       "matched_company_name": "佛山市金银河智能装备股份有限公司",
       "matched_company_code": "39E224010A1417DF76FF38534ACBEB8C",
       "module_coverage": {
-        "completed": 17,
-        "expected": 17
+        "completed": 21,
+        "expected": 21
       },
       "period_counts": {
         "main_indicators": 7,
         "balance_sheet": 7,
         "income_statement": 7,
         "cash_flow_statement": 7,
-        "per_share": 6,
+        "audit_report": 0,
+        "main_business": 6,
+        "major_customers": 0,
+        "major_suppliers": 0,
+        "cash_notes": 0,
+        "inventory_notes": 0,
+        "restricted_assets": 6,
+        "finance_costs": 0,
+        "nonrecurring_gains_losses": 0,
+        "long_term_receivables": 0,
         "profitability": 6,
         "solvency": 6,
         "operation": 6,
         "growth": 6,
         "cash_analysis": 6,
         "dupont": 6,
-        "audit_report": 0,
-        "main_business": 6,
-        "major_customers": 0,
-        "major_suppliers": 0,
-        "cash_notes": 0,
-        "inventory_notes": 0
+        "per_share": 6
       },
       "selected_samples": [
         {
@@ -49,7 +53,7 @@
         "not_checked_missing_disclosure",
         "passed"
       ],
-      "enterprise_elapsed_seconds": 89.842,
+      "enterprise_elapsed_seconds": 9.268,
       "pdf_agnes_elapsed_seconds": null,
       "failed_modules": [],
       "agnes_calls": 0
@@ -59,14 +63,23 @@
       "matched_company_name": "深圳市德方纳米科技股份有限公司",
       "matched_company_code": "EE3886998BC906405B2889706A748814",
       "module_coverage": {
-        "completed": 17,
-        "expected": 17
+        "completed": 21,
+        "expected": 21
       },
       "period_counts": {
+        "inventory_notes": 0,
+        "main_business": 6,
+        "major_customers": 0,
+        "major_suppliers": 0,
         "main_indicators": 7,
         "balance_sheet": 7,
         "income_statement": 7,
         "cash_flow_statement": 7,
+        "audit_report": 0,
+        "restricted_assets": 6,
+        "finance_costs": 0,
+        "nonrecurring_gains_losses": 0,
+        "long_term_receivables": 0,
         "per_share": 6,
         "profitability": 6,
         "solvency": 6,
@@ -74,12 +87,7 @@
         "growth": 6,
         "cash_analysis": 6,
         "dupont": 6,
-        "audit_report": 0,
-        "main_business": 6,
-        "major_customers": 0,
-        "major_suppliers": 0,
-        "cash_notes": 0,
-        "inventory_notes": 0
+        "cash_notes": 0
       },
       "selected_samples": [
         {
@@ -103,7 +111,7 @@
         "not_checked_missing_disclosure",
         "passed"
       ],
-      "enterprise_elapsed_seconds": 86.999,
+      "enterprise_elapsed_seconds": 765.569,
       "pdf_agnes_elapsed_seconds": null,
       "failed_modules": [],
       "agnes_calls": 0
@@ -113,27 +121,31 @@
       "matched_company_name": "气派科技股份有限公司",
       "matched_company_code": "711FC28886CAB3184A7BBBF5A053E944",
       "module_coverage": {
-        "completed": 17,
-        "expected": 17
+        "completed": 21,
+        "expected": 21
       },
       "period_counts": {
-        "audit_report": 0,
-        "balance_sheet": 7,
-        "cash_analysis": 6,
-        "cash_flow_statement": 7,
-        "cash_notes": 0,
-        "dupont": 6,
-        "growth": 6,
-        "income_statement": 7,
-        "inventory_notes": 0,
-        "main_business": 6,
         "main_indicators": 7,
+        "balance_sheet": 7,
+        "income_statement": 7,
+        "long_term_receivables": 0,
+        "audit_report": 0,
+        "main_business": 6,
         "major_customers": 0,
         "major_suppliers": 0,
-        "operation": 6,
+        "cash_notes": 0,
+        "inventory_notes": 0,
+        "restricted_assets": 6,
+        "finance_costs": 0,
+        "nonrecurring_gains_losses": 0,
+        "cash_flow_statement": 7,
         "per_share": 6,
         "profitability": 6,
-        "solvency": 6
+        "solvency": 6,
+        "operation": 6,
+        "growth": 6,
+        "cash_analysis": 6,
+        "dupont": 6
       },
       "selected_samples": [
         {
@@ -157,7 +169,7 @@
         "not_checked_missing_disclosure",
         "passed"
       ],
-      "enterprise_elapsed_seconds": 89.74,
+      "enterprise_elapsed_seconds": 690.878,
       "pdf_agnes_elapsed_seconds": null,
       "failed_modules": [],
       "agnes_calls": 0
@@ -167,8 +179,8 @@
       "matched_company_name": "广州市昊志机电股份有限公司",
       "matched_company_code": "D674D12DDD04CFD13B059FD81946CE6D",
       "module_coverage": {
-        "completed": 17,
-        "expected": 17
+        "completed": 21,
+        "expected": 21
       },
       "period_counts": {
         "audit_report": 0,
@@ -177,16 +189,20 @@
         "cash_flow_statement": 7,
         "cash_notes": 0,
         "dupont": 6,
+        "finance_costs": 0,
         "growth": 6,
         "income_statement": 7,
         "inventory_notes": 0,
+        "long_term_receivables": 0,
         "main_business": 6,
         "main_indicators": 7,
         "major_customers": 0,
         "major_suppliers": 0,
+        "nonrecurring_gains_losses": 0,
         "operation": 6,
         "per_share": 6,
         "profitability": 6,
+        "restricted_assets": 6,
         "solvency": 6
       },
       "selected_samples": [
@@ -211,13 +227,13 @@
         "not_checked_missing_disclosure",
         "passed"
       ],
-      "enterprise_elapsed_seconds": 8.478,
+      "enterprise_elapsed_seconds": 615.099,
       "pdf_agnes_elapsed_seconds": null,
       "failed_modules": [],
       "agnes_calls": 0
     }
   ],
-  "enterprise_median_seconds": 88.36949999999999,
+  "enterprise_median_seconds": 652.9885,
   "pdf_agnes_median_seconds": null,
   "speed_comparison": "unproven_without_comparable_pdf_timing",
   "scope": "Only the four approved companies and the current 企业预警通 version."

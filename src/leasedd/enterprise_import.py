@@ -65,7 +65,9 @@ def run_enterprise_import(app, task_id, lease_token):
         company_code = binding.company_code
         requested = set(task.result.get("failed_modules") or [])
     modules = collector.enumerate_modules(company_code)
-    if len(modules) != 17 or len({module.key for module in modules}) != 17:
+    from .enterprise_warning import MODULES
+    expected_modules = len(MODULES)
+    if len(modules) != expected_modules or len({module.key for module in modules}) != expected_modules:
         from .worker import TaskError
         raise TaskError("structure_changed")
     if requested:

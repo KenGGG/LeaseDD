@@ -59,7 +59,7 @@ def acceptance_result(db, project, binding, record, elapsed):
     checks = sorted({check["status"] for view in views for check in view.get("checks", [])})
     failed = [key for key, value in (record.module_status or {}).items() if value.get("state") == "failed"]
     return {"project": project.name, "matched_company_name": binding.company_name, "matched_company_code": binding.company_code,
-            "module_coverage": {"completed": len(rows), "expected": 17}, "period_counts": periods,
+            "module_coverage": {"completed": len(rows), "expected": 21}, "period_counts": periods,
             "selected_samples": samples, "formula_statuses": checks, "enterprise_elapsed_seconds": elapsed,
             "pdf_agnes_elapsed_seconds": None, "failed_modules": failed, "agnes_calls": 0}
 
@@ -73,7 +73,7 @@ def import_company(app, name, creator, members, *, refresh_all=False):
         record = db.scalar(select(EnterpriseImport).where(EnterpriseImport.project_id == existing.id, EnterpriseImport.state.in_(("completed", "partial"))).order_by(EnterpriseImport.completed_at.desc())) if existing else None
         if binding and record:
             count = len(list(db.scalars(select(EnterpriseFinancialData.id).where(EnterpriseFinancialData.import_id == record.id))))
-            if count == 17 and not refresh_all:
+            if count == 21 and not refresh_all:
                 return acceptance_result(db, existing, binding, record, round((record.completed_at or 0) - (record.started_at or 0), 3))
             resume = (binding.company_code, binding.company_name, binding.identity,
                       None if refresh_all else [key for key, value in (record.module_status or {}).items() if value.get("state") == "failed"])

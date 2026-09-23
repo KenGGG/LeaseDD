@@ -131,9 +131,9 @@ test('enterprise helpers preserve candidates and require explicit selection',()=
 test('enterprise coverage, partial state and task labels stay provider-specific',()=>{
  const modules=[...Array(4)].map((_,i)=>({category:i?'statements':'indicators',module_key:'s'+i})).concat(
   [...Array(7)].map((_,i)=>({category:'analysis',module_key:'a'+i})),
-  [...Array(6)].map((_,i)=>({category:'notes',module_key:'n'+i})),
+  [...Array(10)].map((_,i)=>({category:'notes',module_key:'n'+i})),
  );
- assert.deepEqual(enterpriseCoverage(modules),{statements:4,analysis:7,notes:6,total:17});
+ assert.deepEqual(enterpriseCoverage(modules),{statements:4,analysis:7,notes:10,total:21});
  assert.equal(enterpriseStateLabel('partial'),'导入不完整');
  assert.deepEqual(failedEnterpriseModules({x:{state:'failed',error:'empty_module'},y:{state:'completed',error:null}}),['x']);
  assert.deepEqual(taskDisplay({kind:'enterprise_import',mode:'qyyjt'}),{label:'企业预警通财务导入',mode:'结构化接口'});

@@ -17,6 +17,7 @@ REPORT_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeRe
 ANALYSIS_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/table/header-and-data"
 NOTES_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data"
 MAIN_BUSINESS_ENDPOINT = "/getData.action"
+LEGACY_MATRIX_MODULES = {"main_business", "restricted_assets"}
 FINANCIAL_CATEGORIES = {"indicators", "statements", "analysis", "notes"}
 MODULES = (
     ("main_indicators", "主要财务指标", "indicators", MAIN_ENDPOINT, "Fin.Statement_MainInDicators", {}),
@@ -36,6 +37,11 @@ MODULES = (
     ("major_suppliers", "主要供应商", "notes", NOTES_ENDPOINT, "Fin.Notes_MainSuppliers", {}),
     ("cash_notes", "货币资金", "notes", NOTES_ENDPOINT, "Fin.Notes_Cash", {}),
     ("inventory_notes", "存货", "notes", NOTES_ENDPOINT, "Fin.Notes_Inventory", {}),
+    ("restricted_assets", "受限资产", "notes", MAIN_BUSINESS_ENDPOINT, "Fin.Notes_FinRestrictedAssets", {}),
+    ("finance_costs", "财务费用", "notes", NOTES_ENDPOINT, "Fin.Notes_Fincosts", {}),
+    ("nonrecurring_gains_losses", "非经常性损益", "notes", NOTES_ENDPOINT, "Fin.Notes_FinExtOrdItem", {}),
+    ("long_term_receivables", "长期应收款", "notes", NOTES_ENDPOINT, "Fin.Notes_longTermReceivable",
+     {"child_type": "notes_longTermReceivable"}),
 )
 
 
@@ -132,7 +138,9 @@ def parse_analysis(payload: dict[str, Any]) -> dict[str, Any]:
     fields, values = data["fieldList"], _not_empty(data["dataList"])
     if not isinstance(fields, list) or not isinstance(values, list):
         raise EnterpriseWarningError("structure_changed")
-    periods = [row.get("reportDate") for row in values if isinstance(row, dict)]
+    period_field = next((item.get("value") for item in fields if isinstance(item, dict)
+                         and str(item.get("value") or "").startswith("reportDate")), "reportDate")
+    periods = [row.get(period_field) for row in values if isinstance(row, dict)]
     if len(periods) != len(values) or any(period is None for period in periods):
         raise EnterpriseWarningError("structure_changed")
     rows = []
@@ -140,6 +148,8 @@ def parse_analysis(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(item, dict) or not item.get("value"):
             raise EnterpriseWarningError("structure_changed")
         key = item["value"]
+        if key == period_field:
+            continue
         rows.append({**item, "values": [row.get(key) for row in values]})
     return {"periods": periods, "rows": rows, "total": data.get("total")}
 
@@ -157,14 +167,22 @@ def parse_main_business(payload: dict[str, Any]) -> dict[str, Any]:
     return _parse_matrix(payload, units=True)
 
 
+def parse_empty_notes(payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("returncode") != 200 or payload.get("total") not in (0, None) or "data" in payload:
+        raise EnterpriseWarningError("structure_changed")
+    return {"head": [], "values": [], "rows": [], "metadata": {"empty": True}}
+
+
 def _hash(payload: dict[str, Any]) -> str:
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _parser(module: EnterpriseModule) -> Callable[[dict[str, Any]], dict[str, Any]]:
-    if module.key == "main_business":
+    if module.key in LEGACY_MATRIX_MODULES:
         return parse_main_business
+    if module.key == "long_term_receivables":
+        return parse_empty_notes
     if module.endpoint_path.endswith("getMainIndicators"):
         return parse_main_indicators
     if module.endpoint_path.endswith("getThreeReports"):
@@ -227,7 +245,7 @@ class QyjCollector:
         session = self.session_factory()
         try:
             responses = session.perform("collect", company_code=company_code, module=module)
-            if module.key == "main_business":
+            if module.key in LEGACY_MATRIX_MODULES:
                 candidates = [self._parts(item) for item in responses if module.endpoint_path in item[0]
                               and isinstance(item[1].get("data"), dict)
                               and all(key in item[1]["data"] for key in ("head", "key", "value"))]
@@ -241,7 +259,8 @@ class QyjCollector:
             if params.get("unitCode") == "4": params["unit"] = "万元"
             if params.get("mergeRange") == "1": params["mergeRange"] = "consolidated"
             collected_module = replace(module, request_params=params)
-            parsed = _parser(collected_module)(raw)
+            parser = parse_notes if module.key == "long_term_receivables" and isinstance(raw.get("data"), dict) else _parser(collected_module)
+            parsed = parser(raw)
             return CollectedModule(collected_module, raw, parsed, _hash(raw))
         finally:
             session.close()
@@ -284,6 +303,20 @@ class _PlaywrightSession:
         self.page.remove_listener("response", record)
         return captured
 
+    def _menu_item(self, name: str):
+        exact_name = re.compile(f"^{re.escape(name)}$")
+        holder = self.page.locator(".ant-tree-list-holder")
+        for ratio in (0, 0.25, 0.5, 0.75, 1):
+            item = self.page.locator(".pro-menu-item").filter(has_text=exact_name)
+            if item.count():
+                return item.last
+            holder.evaluate_all(
+                "(els, ratio) => els.forEach(e => e.scrollTop = (e.scrollHeight - e.clientHeight) * ratio)",
+                ratio,
+            )
+            self.page.wait_for_timeout(250)
+        raise EnterpriseWarningError("structure_changed")
+
     def perform(self, action: str, **kwargs) -> list[tuple[str, dict[str, Any]]]:
         if action == "search":
             def run():
@@ -301,18 +334,14 @@ class _PlaywrightSession:
                 if module.category in ("analysis", "notes"):
                     self.page.get_by_text("财务分析" if module.category == "analysis" else "财务附注", exact=True).click(force=True)
                     self.page.wait_for_timeout(500)
-                    exact_name = re.compile(f"^{re.escape(module.name)}$")
-                    item = self.page.locator(".pro-menu-item").filter(has_text=exact_name)
-                    if module.category == "notes" and not item.count():
-                        self.page.locator(".ant-tree-list-holder").evaluate_all("els => els.forEach(e => e.scrollTop = e.scrollHeight)")
-                        self.page.wait_for_timeout(500)
-                else:
-                    exact_name = re.compile(f"^{re.escape(module.name)}$")
-                item = self.page.locator(".pro-menu-item").filter(has_text=exact_name).last
-                if item.count():
-                    item.click(force=True)
-                else:
-                    self.page.get_by_text(module.name, exact=True).first.click(force=True)
+                item = self._menu_item(module.name)
+                item.click(force=True)
+                if module.key == "long_term_receivables":
+                    child_type = module.request_params["child_type"]
+                    self.page.evaluate(
+                        "async ([code, child]) => fetch(`/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data?child_type=${child}&code=${code}&type=company`).then(r => r.json())",
+                        [kwargs["company_code"], child_type],
+                    )
             return self._capture(run, wait_ms=5000 if module.key == "main_business" else 2500)
         raise EnterpriseWarningError("structure_changed")
 

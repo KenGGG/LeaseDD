@@ -18,12 +18,13 @@ ROW=re.compile(r'<tr\b[^>]*>.*?</tr\s*>',re.S|re.I)
 ALIASES={
  '货币资金':'cash','交易性金融资产':'trading_financial_assets','应收票据':'notes_receivable','应收账款':'accounts_receivable',
  '应收款项融资':'receivables_financing','预付款项':'prepayments','预付账款':'prepayments','其他应收款':'other_receivables','存货':'inventory','合同资产':'contract_assets','流动资产合计':'total_current_assets',
- '固定资产':'fixed_assets','在建工程':'construction_in_progress','使用权资产':'right_of_use_assets','无形资产':'intangible_assets','资产总计':'total_assets',
+ '固定资产':'fixed_assets','在建工程':'construction_in_progress','使用权资产':'right_of_use_assets','无形资产':'intangible_assets','非流动资产合计':'total_noncurrent_assets','资产总计':'total_assets',
  '短期借款':'short_term_borrowings','应付票据':'notes_payable','应付账款':'accounts_payable','合同负债':'contract_liabilities','其他应付款':'other_payables','一年内到期的非流动负债':'current_portion_noncurrent_liabilities','流动负债合计':'total_current_liabilities',
- '长期借款':'long_term_borrowings','应付债券':'bonds_payable','租赁负债':'lease_liabilities','负债合计':'total_liabilities','所有者权益合计':'total_equity','所有者权益(或股东权益)合计':'total_equity',
+ '长期借款':'long_term_borrowings','应付债券':'bonds_payable','租赁负债':'lease_liabilities','非流动负债合计':'total_noncurrent_liabilities','负债合计':'total_liabilities','所有者权益合计':'total_equity','所有者权益(或股东权益)合计':'total_equity',
  '营业收入':'revenue','营业成本':'cost','税金及附加':'taxes_and_surcharges','销售费用':'selling_expenses','管理费用':'administrative_expenses','研发费用':'research_and_development_expenses','财务费用':'finance_expenses',
  '其他收益':'other_income','投资收益':'investment_income','信用减值损失':'credit_impairment_loss','资产减值损失':'asset_impairment_loss','营业利润':'operating_profit','利润总额':'total_profit','所得税费用':'income_tax_expense','净利润':'net_profit','归属于母公司股东的净利润':'net_profit_attributable_to_parent',
- '销售商品、提供劳务收到的现金':'cash_received_from_sales','经营活动现金流入小计':'operating_cash_inflows','经营活动现金流出小计':'operating_cash_outflows','经营活动产生的现金流量净额':'net_operating_cash_flow','投资活动产生的现金流量净额':'net_investing_cash_flow','筹资活动产生的现金流量净额':'net_financing_cash_flow','现金及现金等价物净增加额':'net_increase_in_cash','期末现金及现金等价物余额':'ending_cash_balance',
+ '营业外收入':'nonoperating_income','营业外支出':'nonoperating_expense',
+ '销售商品、提供劳务收到的现金':'cash_received_from_sales','经营活动现金流入小计':'operating_cash_inflows','经营活动现金流出小计':'operating_cash_outflows','经营活动产生的现金流量净额':'net_operating_cash_flow','投资活动产生的现金流量净额':'net_investing_cash_flow','筹资活动产生的现金流量净额':'net_financing_cash_flow','汇率变动对现金及现金等价物的影响':'exchange_rate_effect','现金及现金等价物净增加额':'net_increase_in_cash','期初现金及现金等价物余额':'beginning_cash_balance','期末现金及现金等价物余额':'ending_cash_balance',
 }
 
 

@@ -14,7 +14,7 @@ from leasedd.worker import run_once
 
 def modules():
     result = []
-    for index in range(17):
+    for index in range(21):
         category = "statements" if index < 4 else ("analysis" if index < 11 else "notes")
         endpoint = "/report/getThreeReports" if category == "statements" else "/module"
         result.append(EnterpriseModule(f"module-{index}", f"模块{index}", category, endpoint, index))
@@ -67,10 +67,10 @@ def test_worker_imports_all_modules_without_agnes(tmp_path):
         assert record.state == "completed"
         assert record.quality_state == "passed"
         assert len(record.content_sha256) == 64
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 17
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 21
         row = db.scalar(select(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id))
         assert row.request_params == {"unit": "万元", "source": "xhr"}
-    assert collector.collected == [f"module-{index}" for index in range(17)]
+    assert collector.collected == [f"module-{index}" for index in range(21)]
 
 
 def test_partial_and_total_failure_are_recorded_without_losing_successes(tmp_path):
@@ -83,9 +83,9 @@ def test_partial_and_total_failure_are_recorded_without_losing_successes(tmp_pat
         assert record.state == "partial"
         assert record.quality_state == "passed_with_gaps"
         assert record.module_status["module-5"] == {"state": "failed", "error": "structure_changed"}
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 16
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 20
 
-    collector = FakeCollector({f"module-{index}" for index in range(17)})
+    collector = FakeCollector({f"module-{index}" for index in range(21)})
     app, factory, _, _, _, _, import_id = seeded(tmp_path / "all", collector)
     assert run_once(app)
     with factory() as db:
@@ -121,4 +121,4 @@ def test_enqueue_deduplicates_active_task_and_retry_reuses_import(tmp_path):
     with factory() as db:
         assert db.get(Task, retry_task_id).state == "completed"
         assert db.get(EnterpriseImport, import_id).state == "completed"
-        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 17
+        assert db.scalar(select(func.count()).select_from(EnterpriseFinancialData).where(EnterpriseFinancialData.import_id == import_id)) == 21
