@@ -50,7 +50,7 @@
         }
       ],
       "formula_statuses": [
-        "not_checked_missing_disclosure",
+        "not_checked_unverified_source",
         "passed"
       ],
       "enterprise_elapsed_seconds": 9.268,
@@ -108,7 +108,6 @@
         }
       ],
       "formula_statuses": [
-        "not_checked_missing_disclosure",
         "passed"
       ],
       "enterprise_elapsed_seconds": 765.569,
@@ -166,7 +165,6 @@
         }
       ],
       "formula_statuses": [
-        "not_checked_missing_disclosure",
         "passed"
       ],
       "enterprise_elapsed_seconds": 690.878,
@@ -224,7 +222,6 @@
         }
       ],
       "formula_statuses": [
-        "not_checked_missing_disclosure",
         "passed"
       ],
       "enterprise_elapsed_seconds": 615.099,
