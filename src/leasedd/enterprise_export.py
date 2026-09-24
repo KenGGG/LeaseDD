@@ -139,7 +139,7 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
             if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
                 cell.value=value;cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             elif source_style and column==1 and row_index>2:
-                cell.value=value;cell.number_format='0'
+                cell.value=value;cell.number_format='General' if isinstance(value,str) else '0'
             else:
                 cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
                 cell.data_type='s'
@@ -259,8 +259,8 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if len(unique_currencies)>1:
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
-    cash_note=getattr(module,'module_key','')=='cash_notes' and bool(periods)
-    source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or cash_note)
+    numbered_note=getattr(module,'module_key','') in {'cash_notes','inventory_notes','finance_costs'} and bool(periods)
+    source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or numbered_note)
     return _workbook_bytes(module,output,source_style,decimals,
-                           source_label='项目名称' if cash_note else '指标名称',
-                           row_numbers=source_numbers if cash_note else None)
+                           source_label='项目名称' if numbered_note else '指标名称',
+                           row_numbers=[str(number) for number in source_numbers] if numbered_note else None)

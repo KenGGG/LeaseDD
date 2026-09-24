@@ -263,10 +263,43 @@ def test_cash_note_export_keeps_source_rows_and_excel_numbering():
     book, values = rows(export_enterprise_workbook(module))
     assert values == [('数据来源：企业预警通',None,None,None),
                       ('序号','项目名称','2026年中报','2025年年报'),
-                      (1,'现金','2.87万','1.83万'),
-                      (2,'银行存款','15.73亿','7.39亿'),
-                      (4,'其他货币资金','16.57亿','11.80亿'),
-                      (5,'合计','32.29亿','19.19亿')]
+                      ('1','现金','2.87万','1.83万'),
+                      ('2','银行存款','15.73亿','7.39亿'),
+                      ('4','其他货币资金','16.57亿','11.80亿'),
+                      ('5','合计','32.29亿','19.19亿')]
+    assert book.active['A3'].data_type == 's'
+    assert book.active['A3'].number_format == 'General'
+    book.close()
+
+
+def test_inventory_note_export_retains_source_row_numbers_across_hidden_rows():
+    module = SimpleNamespace(module_key='inventory_notes', module_name='存货', category='notes', request_params={}, raw_payload={},
+        parsed_payload={'head':['项目名称','原材料','期末余额','采购商品','账面价值合计'], 'rows':[
+            ['20260630','7.88亿','7.91亿','','27.06亿'],
+            ['20251231','3.23亿','3.26亿','','26.00亿'],
+        ], 'metadata':{}})
+    book, values = rows(export_enterprise_workbook(module, report='latest,annual'))
+    assert values == [('数据来源：企业预警通',None,None,None),
+                      ('序号','项目名称','2026年中报','2025年年报'),
+                      ('1','原材料','7.88亿','3.23亿'),
+                      ('2','期末余额','7.91亿','3.26亿'),
+                      ('4','账面价值合计','27.06亿','26.00亿')]
+    assert book.active['A3'].data_type == 's'
+    book.close()
+
+
+def test_finance_cost_note_export_uses_verified_source_header_and_original_numbering():
+    module = SimpleNamespace(module_key='finance_costs', module_name='财务费用', category='notes', request_params={}, raw_payload={},
+        parsed_payload={'head':['项目名称','利息支出','减：资本化利息支出','减：利息收入','合计'], 'rows':[
+            ['20260630','1.22亿','','-654.91万','1.27亿'],
+            ['20251231','2.00亿','','-600.00万','2.06亿'],
+        ], 'metadata':{}})
+    book, values = rows(export_enterprise_workbook(module, report='latest,annual'))
+    assert values == [('数据来源：企业预警通',None,None,None),
+                      ('序号','项目名称','2026年中报','2025年年报'),
+                      ('1','利息支出','1.22亿','2.00亿'),
+                      ('3','减：利息收入','-654.91万','-600.00万'),
+                      ('4','合计','1.27亿','2.06亿')]
     book.close()
 
 
