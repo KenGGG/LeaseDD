@@ -99,7 +99,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
     {toolbar.currency&&<><label>币种<select aria-label="币种" value={currency} disabled={!variants.length} onChange={e=>{setCurrency(e.target.value);setRate('1')}}>{(currencyOptions.length?currencyOptions:['O']).map(v=><option key={v} value={v}>{currencyNames[v]||v}</option>)}</select></label><label>汇率<select aria-label="汇率" value={rate} disabled={!variants.length} onChange={e=>setRate(e.target.value)}>{(rateOptions.length?rateOptions:['1']).map(v=><option key={v} value={v}>{v==='1'?'期末汇率':v==='2'?'最新汇率':v}</option>)}</select></label></>}
    </>}
   </div>}
-  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button>{original.kind==='matrix'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
+  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button>{original.kind==='matrix'&&module.category!=='analysis'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
   </div>
   {exportError&&<p role="alert" className="finance-pending">{exportError}</p>}
   {view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={module.module_name+'原始数据表'}>

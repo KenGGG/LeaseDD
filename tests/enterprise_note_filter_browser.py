@@ -141,3 +141,38 @@ def test_desktop_financial_table_matches_source_reading_area(monkeypatch):
         assert page.locator("body").evaluate("element => element.scrollWidth") <= 2048
         page.screenshot(path='/tmp/leasedd-main-toolbar-fixture.png', full_page=True)
         browser.close()
+
+
+def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'per_share', 'module_name': '每股指标', 'category': 'analysis',
+        'state': 'completed', 'response_sha256': 'c' * 64,
+        'request_params': {'unit': '万元'}, 'raw_payload': {},
+        'parsed_payload': {'periods': ['2026年中报', '2025年年报', '2024年年报',
+                                       '2023年年报', '2022年年报', '2021年年报'], 'rows': [
+            {'name': '上市公司披露', 'value': 'group', 'highlight': True,
+             'values': [None] * 6, 'children': [
+                 {'name': '基本每股收益(元)', 'value': 'eps', 'unit': '元',
+                  'values': ['1.6300', '-2.9500', '-4.8100', '-5.8700', '14.2500', '8.9500'], 'children': []},
+             ]},
+        ]},
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1280, 'height': 720})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务分析', exact=True).click()
+        page.get_by_role('button', name='每股指标', exact=True).click()
+        page.locator('.enterprise-source-table').wait_for()
+        assert page.get_by_text('1.6300', exact=True).count() == 1
+        assert page.locator('.enterprise-reference-tools').get_by_text('隐藏空行').count() == 0
+        table = page.locator('.enterprise-source-table')
+        table_box = table.bounding_box()
+        sixth_period = table.locator('thead th').nth(6).bounding_box()
+        assert table_box['y'] <= 190
+        assert sixth_period['x'] + sixth_period['width'] <= table_box['x'] + table_box['width'] + 2
+        page.screenshot(path='/tmp/leasedd-per-share-toolbar-fixture.png', full_page=False)
+        browser.close()
