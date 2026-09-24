@@ -436,6 +436,26 @@ test('source customer records have export only while period matrices have report
  assert.equal(enterpriseHasPeriodControls(matrix),true);
 });
 
+test('customer company links use only source itcode at the same record position',()=>{
+ const code='82544731E821017487F99C9A794EF6E9';
+ const module={module_key:'major_customers',category:'notes',parsed_payload:{
+  head:[['客户名称','宁德时代新能源科技股份有限公司','第二名','合计']],
+  rows:[[['销售额','88.08亿','53.12亿','163.49亿']]],
+  metadata:{report:['20231231'],itcode:[['',code,'javascript:alert(1)','']]},
+ }};
+ const view=buildEnterpriseModuleView(module);
+ assert.equal(view.kind,'records');
+ assert.deepEqual(view.tables[0].rowLinks,[
+  'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+code,
+  null,null,
+ ]);
+ assert.deepEqual(view.tables[0].rows,[
+  ['宁德时代新能源科技股份有限公司','88.08亿'],['第二名','53.12亿'],['合计','163.49亿'],
+ ]);
+ assert.deepEqual(buildEnterpriseModuleView({...module,module_key:'major_suppliers'}).tables[0].rowLinks,view.tables[0].rowLinks);
+ assert.equal(buildEnterpriseModuleView({...module,module_key:'other_receivables_top_five'}).tables[0].rowLinks,undefined);
+});
+
 test('customer note repeats year groups under one matching header without merging changed layouts',()=>{
  const tables=[
   {title:'2025年年报',headers:['客户','金额'],rows:[['第一名','6亿']]},

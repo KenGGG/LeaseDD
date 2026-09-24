@@ -306,15 +306,16 @@ def test_financial_expense_note_does_not_invent_report_sort(monkeypatch):
 
 
 def test_major_customer_record_columns_and_export_match_source_reading_area(monkeypatch):
+    company_code = '82544731E821017487F99C9A794EF6E9'
     monkeypatch.setattr(__import__(__name__), 'MODULE', {
         'module_key': 'major_customers', 'module_name': '主要销售客户', 'category': 'notes',
         'state': 'completed', 'response_sha256': 'f' * 64,
         'request_params': {}, 'raw_payload': {},
         'parsed_payload': {
-            'head': [['客户名称', '第一名', '第二名', '合计']],
-            'rows': [[['销售额', '34.03亿', '29.40亿', '77.81亿'],
-                      ['占销售总额比例', '39.03%', '33.72%', '89.24%']]],
-            'metadata': {'report': ['20251231']},
+            'head': [['客户名称', '宁德时代新能源科技股份有限公司', '第二名', '合计']],
+            'rows': [[['销售额', '88.08亿', '53.12亿', '163.49亿'],
+                      ['占销售总额比例', '51.90%', '31.30%', '96.32%']]],
+            'metadata': {'report': ['20231231'], 'itcode': [['', company_code, '', '']]},
         },
     })
     with sync_playwright() as playwright:
@@ -341,8 +342,12 @@ def test_major_customer_record_columns_and_export_match_source_reading_area(monk
         assert 24 <= label_padding <= 34
         assert page.get_by_role('button', name='导出Excel').bounding_box()['y'] <= page.locator('.finance-heading h2').bounding_box()['y'] + 18
         assert table.bounding_box()['y'] <= 160
-        assert '34.03亿' in table.locator('tbody').inner_text()
-        assert '89.24%' in table.locator('tbody').inner_text()
+        assert '88.08亿' in table.locator('tbody').inner_text()
+        assert '96.32%' in table.locator('tbody').inner_text()
+        linked = table.get_by_role('link', name='宁德时代新能源科技股份有限公司')
+        assert linked.get_attribute('href') == 'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+company_code
+        assert linked.evaluate('(element) => getComputedStyle(element).color') == 'rgb(22, 119, 255)'
+        assert table.get_by_role('link', name='第二名').count() == 0
         with page.expect_download() as event:
             page.get_by_role('button', name='导出Excel').click()
         book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
