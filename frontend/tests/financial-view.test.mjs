@@ -459,6 +459,20 @@ test('enterprise flat notes transpose periods into columns without changing form
  assert.equal(view.rows[2].section,false);
 });
 
+test('inventory note uses disclosed level for child indentation and marks disclosed totals',()=>{
+ const view=buildEnterpriseModuleView({module_key:'inventory_notes',category:'notes',parsed_payload:{
+  head:['项目名称','原材料','期末余额','跌价准备','账面价值合计'],
+  rows:[['20260630','7.88亿','7.91亿','342.44万','27.06亿']],
+  metadata:{level:['1','1','2','2','1'],leftTreeShow:true},
+ }});
+ assert.equal(view.kind,'matrix');
+ assert.deepEqual(view.rows.map(row=>[row.label,row.depth,row.bold,row.section]),[
+  ['原材料',0,false,false],['期末余额',1,false,false],
+  ['跌价准备',1,false,false],['账面价值合计',0,true,false],
+ ]);
+ assert.deepEqual(view.rows.map(row=>row.values[0]),['7.88亿','7.91亿','342.44万','27.06亿']);
+});
+
 test('audit report keeps source financial cells without importing PDF links',()=>{
  const url='https://hwfile.finchina.com/MRGG/CNSESZ_SJBG/2026/report.pdf';
  const module={module_key:'audit_report',category:'notes',parsed_payload:{head:['报告期','审计报告正文'],

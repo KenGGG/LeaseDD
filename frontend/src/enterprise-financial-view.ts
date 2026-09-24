@@ -158,8 +158,11 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
  if(heads.length&&rows.length){
   const cells=rowArray(rows);
   if(module.category==='notes'&&cells.every(row=>/^\d{8}$/.test(String(row[0])))){
+   const sourceLevels=Array.isArray(metadata.level)?metadata.level:[];
+   const levels=sourceLevels.slice(1).map(Number).filter(Number.isFinite);
+   const baseLevel=levels.length?Math.min(...levels):0;
    return {kind:'matrix',periods:cells.map(row=>enterprisePeriodLabel(row[0])),rows:strings(heads).slice(1).map((label,i)=>({
-    key:'note-'+i,label,unit:'',depth:0,section:false,bold:label==='合计',values:cells.map(row=>row[i+1]),
+    key:'note-'+i,label,unit:'',depth:Math.max(0,(Number(sourceLevels[i+1])||baseLevel)-baseLevel),section:false,bold:/合计$/.test(label),values:cells.map(row=>row[i+1]),
    }))};
   }
   return {kind:'records',tables:[{title:module.module_name||module.module_key,headers:strings(heads),rows:rowArray(rows)}]};
