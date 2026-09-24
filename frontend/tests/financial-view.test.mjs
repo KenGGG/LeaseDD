@@ -118,8 +118,11 @@ test('restricted assets uses its verified year/unit toolbar without invented cur
  assert.equal(enterpriseToolbarOptions({module_key:'cash_notes',category:'notes'}).yearsAndUnit,false);
 });
 test('verified financial-note report menus have only the source three choices',()=>{
- for(const module_key of ['audit_report','receivables_aging','prepayments_aging','other_receivables_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses','main_business','restricted_assets']){
+ for(const module_key of ['audit_report','receivables_aging','prepayments_aging','other_receivables_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']){
   assert.deepEqual(enterpriseReportOptions({module_key,category:'notes'}).map(([key])=>key),['latest','annual','half']);
+ }
+ for(const module_key of ['main_business','restricted_assets','receivables_top_five','other_receivables_top_five']){
+  assert.deepEqual(enterpriseReportOptions({module_key,category:'notes'}).map(([key])=>key),['all','latest','annual','half']);
  }
  assert.deepEqual(enterpriseReportOptions({module_key:'balance_sheet',category:'statements'}).map(([key])=>key),['all','latest','annual','q3','half','q1']);
 });
