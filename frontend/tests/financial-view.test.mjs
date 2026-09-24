@@ -225,6 +225,12 @@ test('enterprise note navigation retains source parent groups without renaming l
  assert.deepEqual(groups.map(g=>[g.name,g.children.map(m=>m.module_key)]),[['审计报告',['audit']],['应收账款',['aging','top']]]);
  assert.equal(groups[1].nested,true);
 });
+test('returning to a selected nested note makes its parent visible again',()=>{
+ const modules=[{module_key:'audit',module_name:'审计报告'},{module_key:'aging',module_name:'应收账款账龄分析',request_params:{menu_parent:'应收账款'}},{module_key:'top',module_name:'前五名应收账款',request_params:{menu_parent:'应收账款'}}];
+ const groups=enterpriseModuleGroups(modules);
+ assert.deepEqual(viewHelpers.selectedEnterpriseNoteParents?.(groups,'前五名应收账款'),['应收账款']);
+ assert.deepEqual(viewHelpers.selectedEnterpriseNoteParents?.(groups,'审计报告'),[]);
+});
 test('collapsing a financial parent hides descendants but preserves following siblings and raw data',()=>{
  const rows=[{key:'parent',depth:1},{key:'child',depth:2},{key:'grandchild',depth:3},{key:'next',depth:1}];
  assert.deepEqual(collapseEnterpriseRows(rows,new Set(['parent'])).map(r=>r.key),['parent','next']);

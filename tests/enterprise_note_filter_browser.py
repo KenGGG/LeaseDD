@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import openpyxl
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 from leasedd.enterprise_export import export_enterprise_workbook
 
@@ -102,6 +102,25 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         assert [row[1] for row in values if len(row)>1 and row[1] and "年" in str(row[1])] == ["2025年中报"]
         assert values[-1] == ('2', "第一名", 592001234.56)
         book.close()
+        browser.close()
+
+
+def test_selected_note_leaf_remains_visible_after_switching_to_statement():
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path="/usr/bin/google-chrome")
+        page = browser.new_page(viewport={"width": 1600, "height": 900})
+        page.route("**/api/**", serve)
+        page.goto(os.getenv("LEASEDD_BROWSER_URL", "http://172.30.10.150:5173"))
+        page.get_by_role("button", name="附注测试项目").click()
+        page.get_by_role("button", name="财务核对", exact=True).click()
+        nav = page.get_by_role("navigation", name="财务数据栏目")
+        nav.get_by_role("button", name="财务附注", exact=True).click()
+        nav.get_by_role("button", name="⊞ 应收账款").click()
+        nav.get_by_role("button", name="前五名应收账款").click()
+        nav.get_by_role("button", name="资产负债表", exact=True).click()
+        nav.get_by_role("button", name="财务附注", exact=True).click()
+        expect(nav.get_by_role("button", name="前五名应收账款")).to_be_visible()
+        expect(nav.get_by_role("button", name="⊟ 应收账款")).to_have_attribute("aria-expanded", "true")
         browser.close()
 
 

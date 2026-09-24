@@ -79,6 +79,9 @@ export function enterpriseModuleGroups(modules:EnterpriseModuleData[]){
  }
  return groups;
 }
+export function selectedEnterpriseNoteParents(groups:ReturnType<typeof enterpriseModuleGroups>,selected:string){
+ return groups.filter(group=>group.nested&&group.children.some(module=>(module.module_name||module.module_key)===selected)).map(group=>group.name);
+}
 export function collapseEnterpriseRows(rows:EnterpriseMatrixRow[],collapsed:Set<string>){
  let hiddenBelow:number|null=null;
  return rows.filter(row=>{

@@ -9,7 +9,7 @@ import FinancialInsights from './FinancialInsights';
 import FinancialNotes from './FinancialNotes';
 import {analysisCategories,noteCategories,noteGroups,noteParent,noteLabel} from './reference-finance';
 import EnterpriseFinancialTable from './EnterpriseFinancialTable';
-import {enterpriseModuleGroups,mergeEnterpriseModule} from './enterprise-financial-view';
+import {enterpriseModuleGroups,mergeEnterpriseModule,selectedEnterpriseNoteParents} from './enterprise-financial-view';
 
 type Props={statements:FinancialStatement[];docs:Doc[];pid:string;writer:boolean;busy:boolean;perform:(fn:()=>Promise<void>)=>void;refresh:()=>Promise<void>;children:React.ReactNode};
 const stateText={empty:'—',rejected:'已拒绝',unverified:'来源待核对',conflict:'存在冲突',pending:'待核对',value:''};
@@ -127,7 +127,7 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
 }
 
 function EnterpriseNotesNavigation({modules,selected,onSelect}:{modules:EnterpriseModuleData[];selected:string;onSelect:(name:string)=>void}){
- const [expanded,setExpanded]=useState<Set<string>>(new Set());
+ const [expanded,setExpanded]=useState<Set<string>>(()=>new Set(selectedEnterpriseNoteParents(enterpriseModuleGroups(modules),selected)));
  return <>{enterpriseModuleGroups(modules).map(group=><React.Fragment key={group.name}>
   {group.nested&&<button className="finance-subnav" aria-expanded={expanded.has(group.name)} onClick={()=>setExpanded(previous=>{const next=new Set(previous);next.has(group.name)?next.delete(group.name):next.add(group.name);return next})}>{expanded.has(group.name)?'⊟':'⊞'} {group.name}</button>}
   {(!group.nested||expanded.has(group.name))&&group.children.map(module=><button key={module.module_key} disabled={module.state==='unavailable'} title={module.state==='unavailable'?'企业预警通原站当前禁用此栏目':undefined} className={'finance-subnav '+(group.nested?'finance-leaf ':'')+(selected===(module.module_name||module.module_key)?'active':'')} onClick={()=>onSelect(module.module_name||module.module_key)}>{module.module_name||module.module_key}</button>)}
