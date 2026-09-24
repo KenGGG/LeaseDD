@@ -231,3 +231,32 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         assert sixth_period['x'] >= right - 2
         page.screenshot(path='/tmp/leasedd-cash-notes-width-fixture.png', full_page=False)
         browser.close()
+
+
+def test_financial_expense_note_does_not_invent_report_sort(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'finance_costs', 'module_name': '财务费用', 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'e' * 64,
+        'request_params': {'child_type': 'notes_FinancialExpenses'}, 'raw_payload': {},
+        'parsed_payload': {
+            'head': ['项目名称', '利息支出', '减：利息收入', '合计'],
+            'rows': [['20260630', '1.22亿', '-654.91万', '1.27亿'],
+                     ['20251231', '1.94亿', '-1,726.14万', '1.88亿']],
+            'metadata': {'level': ['0', '1', '1', '1']},
+        },
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1600, 'height': 1000})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='财务费用', exact=True).click()
+        table = page.locator('.enterprise-source-table')
+        table.wait_for()
+        assert page.get_by_role('button', name='报告期倒序').count() == 0
+        assert table.locator('tbody tr').nth(1).locator('td').first.inner_text() == '-654.91万'
+        page.screenshot(path='/tmp/leasedd-financial-expense-toolbar-fixture.png', full_page=False)
+        browser.close()
