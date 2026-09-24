@@ -1,7 +1,7 @@
 """Excel presentation of a saved enterprise module; no collection or mutation."""
 from __future__ import annotations
 
-from decimal import Decimal, localcontext
+from decimal import Decimal, ROUND_HALF_UP, localcontext
 from io import BytesIO
 import re
 
@@ -136,7 +136,10 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
     for row_index,row in enumerate(output,1):
         for column,value in enumerate(row,1):
             cell=sheet.cell(row_index,column)
-            if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
+            if source_style and getattr(module,'module_key','')=='main_indicators' and row_index>2 and column>1 and _blank(value):
+                cell.value=None
+                cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
+            elif isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
                 prefix='###,###,##0' if getattr(module,'module_key','') in {
                     'restricted_assets','main_business','receivables_top_five','other_receivables_top_five'} else '#,##0'
                 cell.value=value;cell.number_format=(cell_formats or {}).get((row_index,column),prefix+('.'+'0'*decimals if decimals else ''))
@@ -145,7 +148,7 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
             else:
                 cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
                 cell.data_type='s'
-            if header_unit and row_index>2 and column>1 and cell.data_type=='s':
+            if (header_unit or getattr(module,'module_key','')=='main_indicators' and source_style) and row_index>2 and column>1 and cell.data_type=='s':
                 cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             cell.font=Font(name='Microsoft YaHei',size=10,bold=row_index<=(2 if source_style else 1),color='FF4545' if str(value).startswith('-') else '20252C')
             if row_index==1 or row_index%2==0:cell.fill=PatternFill('solid',fgColor='F7FAFF')
@@ -301,7 +304,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                 if hide_empty and not section and all(_blank(value) for value in values):continue
                 label=name
                 if source_unit and not source_statement:
-                    display_unit=unit if source_unit in UNIT_SCALES else source_unit
+                    display_unit=unit if source_unit in UNIT_SCALES else '元' if source_unit=='元/股' and getattr(module,'module_key','')=='main_indicators' else source_unit
                     suffix=re.search(r'[（(]([^（）()]+)[）)]$',label)
                     if suffix and suffix[1] in {*UNIT_SCALES,'%','倍','天','元/股'}:
                         label=label[:suffix.start()]+'（'+display_unit+'）'
@@ -312,9 +315,12 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     indent=int(blank[index+1] or 0) if index+1<len(blank) else 0
                     label=' '*(2*indent)+label
                 converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
-                if source_statement and row.get('key')=='conversionRate':
+                if getattr(module,'module_key','')=='main_indicators' and source_unit in UNIT_SCALES and not trend_key:
+                    converted=[value.quantize(Decimal('0.000001'),rounding=ROUND_HALF_UP)
+                               if isinstance(value,Decimal) else value for value in converted]
+                if (source_statement or getattr(module,'module_key','')=='main_indicators') and row.get('key')=='conversionRate':
                     converted=[Decimal(str(value)) if re.fullmatch(r'-?\d+(?:\.\d+)?',str(value)) else value for value in converted]
-                if source_statement and row.get('key')=='dataSource':
+                if (source_statement or getattr(module,'module_key','')=='main_indicators') and row.get('key')=='dataSource':
                     converted=[re.split(r'__https?://',str(value),maxsplit=1)[0] for value in converted]
                 if getattr(module,'module_key','')=='main_business' and row.get('key')=='conversionRate':
                     for position,value in enumerate(converted):

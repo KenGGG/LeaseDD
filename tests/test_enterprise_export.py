@@ -543,6 +543,38 @@ def test_source_statement_excel_keeps_original_labels_header_unit_and_text_sourc
     book.close()
 
 
+def test_source_indicator_excel_matches_provider_numeric_precision_and_text_cells():
+    module=SimpleNamespace(module_key='main_indicators',module_name='主要财务指标',category='indicators',
+                           request_params={},raw_payload={},parsed_payload={
+        'periods':['2026年中报'],
+        'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末']},
+            {'key':'220006','name':'营业总收入','unit':'亿元','values':['15.416481963996508']},
+            {'key':'eps','name':'基本每股收益','unit':'元','values':['0.24162794']},
+            {'key':'section','name':'利润表','level':0,'values':[None]},
+            {'key':'conversionRate','name':'转换汇率','values':['1']},
+            {'key':'dataSource','name':'数据来源','values':['中报__https://example.com/report.pdf']}],
+        'metadata':{}})
+    original=str(module.parsed_payload)
+    book,values=rows(export_enterprise_workbook(module,report='half',scopes='合并期末',
+                                                data_kinds='原始报表',unit='亿元'))
+    assert values==[
+        ('数据来源：企业预警通',None,None),
+        ('序号','指标名称','2026年中报'),
+        (1,'报表类型','合并期末'),
+        (2,'营业总收入（亿元）',15.416482),
+        (3,'基本每股收益（元）',0.24162794),
+        (4,'利润表',None),
+        (5,'转换汇率',1),
+        (6,'数据来源','中报')]
+    assert book.active['C4'].data_type=='n'
+    assert book.active['B3'].number_format=='#,##0.00'
+    assert book.active['C3'].number_format=='#,##0.00'
+    assert book.active['C6'].number_format=='#,##0.00'
+    assert str(module.parsed_payload)==original
+    book.close()
+
+
 def test_mixed_percentage_columns_are_not_scaled_by_amount_unit():
     module=SimpleNamespace(module_name='资产负债表',category='statements',request_params={},raw_payload={},parsed_payload={
         'periods':['2025年年报','2025年年报'],'rows':[
