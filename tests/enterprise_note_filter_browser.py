@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import openpyxl
+import pytest
 from playwright.sync_api import sync_playwright
 
 from leasedd.enterprise_export import export_enterprise_workbook
@@ -252,6 +253,33 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
         browser.close()
 
 
+@pytest.mark.parametrize('module_key,module_name', [
+    ('main_business', '主营构成'),
+    ('restricted_assets', '受限资产'),
+])
+def test_special_notes_omit_source_absent_hide_empty_control(monkeypatch, module_key, module_name):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': module_key, 'module_name': module_name, 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'e' * 64,
+        'request_params': {'unit': '万元'}, 'raw_payload': {},
+        'parsed_payload': {'periods': ['2025年年报'], 'rows': [
+            {'key': 'asset', 'name': '已披露科目', 'unit': '万元', 'values': ['123.45']},
+        ]},
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1280, 'height': 720})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name=module_name, exact=True).click()
+        assert '123.45' in page.locator('.enterprise-source-table').inner_text()
+        assert page.locator('.enterprise-reference-tools').get_by_text('隐藏空行').count() == 0
+        browser.close()
+
+
 def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeypatch):
     monkeypatch.setattr(__import__(__name__), 'MODULE', {
         'module_key': 'cash_notes', 'module_name': '货币资金', 'category': 'notes',
@@ -282,6 +310,7 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         table = page.locator('.enterprise-source-table')
         table.wait_for()
         assert page.get_by_role('button', name='报告期倒序').count() == 0
+        assert page.locator('.enterprise-reference-tools').get_by_text('隐藏空行').count() == 1
         assert table.locator('tbody tr').count() == 4
         assert '2.87万' in table.locator('tbody tr').first.inner_text()
         assert '15.73亿' in table.locator('tbody tr').nth(1).inner_text()
