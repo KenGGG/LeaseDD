@@ -351,3 +351,21 @@
 .enterprise-trend .finance-matrix th:first-child,.enterprise-trend .finance-matrix td:first-child{width:60px;min-width:60px}
 .enterprise-trend .finance-matrix tbody tr:nth-child(odd){background:#f7faff}
 @media(max-width:900px){.enterprise-workspace{grid-template-columns:1fr}.enterprise-workspace .finance-nav{position:static;max-height:240px}.enterprise-reference .enterprise-source-table .finance-matrix th:first-child{min-width:175px;max-width:210px}}
+
+/* Financial pages use the reference's top-level horizontal navigation so the
+   financial category tree remains the only persistent left sidebar. */
+@media(min-width:1101px){
+ .finance-mode .sidebar{inset:0 0 auto 0;width:100%;height:64px;z-index:20;flex-direction:row;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden;padding:0 16px}
+ .finance-mode .brand{font-size:19px;white-space:nowrap;padding:0 12px 0 0;margin-right:18px}
+ .finance-mode .brandmark{width:32px;height:34px}
+ .finance-mode .brand small,.finance-mode .workspace-label,.finance-mode .nav-section,.finance-mode .local-status{display:none}
+ .finance-mode .nav{width:auto;flex:0 0 auto;white-space:nowrap;margin:0;padding:9px 11px}
+ .finance-mode .sidebar-bottom{margin:0 0 0 auto;flex:0 0 auto}
+ .finance-mode .user-row{padding:0 0 0 10px;border:0}
+ .finance-mode .user-row>div{display:none}
+ .finance-mode .workspace{margin-left:0;padding-top:64px}
+ .finance-mode .workspace>header{height:48px;padding:0 18px}
+ .finance-mode .finance-page{max-width:none;padding:12px 16px 28px}
+ .finance-mode .project-title{margin-bottom:10px}
+ .finance-mode .financial-workspace{grid-template-columns:210px minmax(0,1fr)}
+}

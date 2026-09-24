@@ -97,3 +97,22 @@ def test_statement_trend_dialog_uses_disclosed_percentage():
         assert workbook.active.cell(2, 3).value == -5.576781
         workbook.close()
         browser.close()
+
+
+def test_finance_navigation_keeps_table_wide_without_changing_other_pages():
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path="/usr/bin/google-chrome")
+        page = browser.new_page(viewport={"width": 1600, "height": 900})
+        page.route("**/api/**", serve)
+        page.goto(os.getenv("LEASEDD_BROWSER_URL", "http://127.0.0.1:5174"))
+        page.get_by_role("button", name="趋势测试项目").click()
+        page.get_by_role("button", name="财务核对", exact=True).click()
+        assert page.locator(".shell").evaluate("element => element.classList.contains('finance-mode')")
+        assert page.locator(".sidebar").bounding_box()["height"] < 100
+        assert page.locator(".finance-content").bounding_box()["width"] > 1200
+        page.get_by_role("button", name="项目概览").click()
+        assert page.locator(".sidebar").bounding_box()["width"] > 200
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.get_by_role("button", name="财务核对", exact=True).click()
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        browser.close()
