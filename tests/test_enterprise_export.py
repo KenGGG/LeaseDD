@@ -263,6 +263,28 @@ def test_receivables_aging_excel_preserves_source_row_numbers_and_numeric_units(
     book.close()
 
 
+def test_other_verified_flat_notes_keep_raw_units_even_if_source_excel_format_is_wrong():
+    cases=(
+        ('prepayments_aging','账龄','2.07亿','###,###,##0.00"亿"',2.07),
+        ('other_receivables_aging','账龄','4,500.00元','###,###,##0.00"元"',4500),
+        ('nonrecurring_gains_losses','项目名称','-1,919.27万','###,###,##0.00"万"',-1919.27),
+    )
+    for key,label,raw,number_format,amount in cases:
+        module=SimpleNamespace(module_key=key,module_name=key,category='notes',request_params={},raw_payload={},parsed_payload={
+            'head':[label,'第一项','空行'],
+            'rows':[['20251231',raw,'- ']],
+            'metadata':{}})
+        book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+        assert values==[
+            ('数据来源：企业预警通',None,None),
+            ('序号',label,'2025年年报'),
+            ('1','第一项',amount)]
+        assert book.active['A3'].data_type=='s'
+        assert book.active['C3'].number_format==number_format
+        assert module.parsed_payload['rows'][0][1]==raw
+        book.close()
+
+
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
     module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
         parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[

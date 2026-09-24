@@ -174,6 +174,8 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if statement_trend:
             return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
     output=[];source_numbers=[];cell_formats={}
+    numeric_flat_note=getattr(module,'module_key','') in {
+        'receivables_aging','prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'}
     impairment_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'receivables_impairment','other_receivables_impairment'})
     numbered_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
@@ -265,7 +267,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                         label=label[:suffix.start()]+'（'+display_unit+'）'
                     else:label+='（'+display_unit+'）'
                 converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
-                if getattr(module,'module_key','')=='receivables_aging':
+                if numeric_flat_note:
                     for position,value in enumerate(values):
                         match=re.fullmatch(r'(-?\d[\d,]*(?:\.\d+)?)(万|亿|元)',str(value).strip())
                         if match:
@@ -289,12 +291,14 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if len(unique_currencies)>1:
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
-    numbered_note=getattr(module,'module_key','') in {'cash_notes','inventory_notes','finance_costs','receivables_aging'} and bool(periods)
+    numbered_note=getattr(module,'module_key','') in {
+        'cash_notes','inventory_notes','finance_costs','receivables_aging',
+        'prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'} and bool(periods)
     source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or numbered_note)
     if numbered_record:
         source_style=True
         source_numbers=list(map(str,range(1,len(output))))
     return _workbook_bytes(module,output,source_style,decimals,
-                           source_label=str(heads[0][0]) if numbered_record else str(heads[0]) if numbered_note and getattr(module,'module_key','')=='receivables_aging' else '项目名称' if numbered_note else '指标名称',
+                           source_label=str(heads[0][0]) if numbered_record else str(heads[0]) if numbered_note and numeric_flat_note else '项目名称' if numbered_note else '指标名称',
                            row_numbers=source_numbers if numbered_record else [str(number) for number in source_numbers] if numbered_note else None,
                            cell_formats=cell_formats)
