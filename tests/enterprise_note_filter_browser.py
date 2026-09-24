@@ -284,6 +284,7 @@ def test_special_notes_omit_source_absent_hide_empty_control(monkeypatch, module
     ('payables_aging', '应付账款账龄分析', '应付账款'),
     ('other_payables_aging', '其他应付款账龄分析', '其他应付款'),
     ('other_receivables_property', '按款项性质分类', '其他应收款'),
+    ('advances_aging', '预收款项账龄分析', '预收款项'),
 ])
 def test_source_verified_note_menus_have_no_extra_periods_sort_or_confirm(monkeypatch, module_key, module_name, parent):
     monkeypatch.setattr(__import__(__name__), 'MODULE', {

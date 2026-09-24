@@ -28,7 +28,7 @@ function IndicatorHelp({row}:{row:EnterpriseMatrixRow}){
 
 const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['q3','三季报'],['half','中报'],['q1','一季报']];
 const sourceNoSortNotes=new Set(['audit_report','receivables_aging','other_receivables_aging','prepayments_aging',
- 'payables_aging','other_payables_aging','other_receivables_property','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
+ 'payables_aging','other_payables_aging','other_receivables_property','advances_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
 function ReportSelect({value,onChange,label='报告期',options=reportOptions,confirm=true}:{value:string;onChange:(value:string)=>void;label?:string;options?:string[][];confirm?:boolean}){
  const selected=value.split(',');
  const chosen=options.filter(([key])=>selected.includes(key));
