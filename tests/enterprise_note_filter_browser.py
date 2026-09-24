@@ -133,6 +133,7 @@ def test_desktop_financial_table_matches_source_reading_area(monkeypatch):
         tools = page.locator('.enterprise-reference-tools').bounding_box()
         assert 200 <= nav_width <= 245
         assert 30 <= row_height <= 40
+        assert page.get_by_role('button', name='报告期倒序', exact=True).count() == 1
         assert abs(filters['y'] - tools['y']) <= 4
         assert table_box['y'] <= 200
         assert seventh_period['x'] + seventh_period['width'] <= table_box['x'] + table_box['width'] + 2
@@ -159,7 +160,7 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
     })
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
-        page = browser.new_page(viewport={'width': 1280, 'height': 720})
+        page = browser.new_page(viewport={'width': 1280, 'height': 720}, accept_downloads=True)
         page.route('**/api/**', serve)
         page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
         page.get_by_role('button', name='附注测试项目').click()
@@ -174,5 +175,15 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
         sixth_period = table.locator('thead th').nth(6).bounding_box()
         assert table_box['y'] <= 190
         assert sixth_period['x'] + sixth_period['width'] <= table_box['x'] + table_box['width'] + 2
+        page.get_by_role('button', name='报告期降序').click()
+        assert table.locator('thead th').nth(1).inner_text() == '2021年年报'
+        assert table.locator('thead th').nth(6).inner_text() == '2026年中报'
+        assert page.get_by_role('button', name='报告期正序').count() == 1
+        with page.expect_download() as event:
+            page.get_by_role('button', name='导出Excel').click()
+        book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
+        assert list(book.active.values)[0] == ('报告期', '2021年年报', '2022年年报',
+                                                '2023年年报', '2024年年报', '2025年年报', '2026年中报')
+        book.close()
         page.screenshot(path='/tmp/leasedd-per-share-toolbar-fixture.png', full_page=False)
         browser.close()

@@ -72,6 +72,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  const scopeOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.scope).filter(Boolean))].map(value=>[value,value])];
  const kindOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.kind))].map(value=>[value,value])];
  const sources=view.kind==='matrix'?view.rows.find(row=>row.key==='dataSource')?.values||[]:[];
+ const sortLabel='报告期'+(module.category==='analysis'?(descending?'降序':'正序'):(descending?'倒序':'正序'));
  async function exportExcel(){
   if(!module)return;
   setExporting(true);setExportError('');
@@ -99,7 +100,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
     {toolbar.currency&&<><label>币种<select aria-label="币种" value={currency} disabled={!variants.length} onChange={e=>{setCurrency(e.target.value);setRate('1')}}>{(currencyOptions.length?currencyOptions:['O']).map(v=><option key={v} value={v}>{currencyNames[v]||v}</option>)}</select></label><label>汇率<select aria-label="汇率" value={rate} disabled={!variants.length} onChange={e=>setRate(e.target.value)}>{(rateOptions.length?rateOptions:['1']).map(v=><option key={v} value={v}>{v==='1'?'期末汇率':v==='2'?'最新汇率':v}</option>)}</select></label></>}
    </>}
   </div>}
-  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button>{original.kind==='matrix'&&module.category!=='analysis'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
+  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>{sortLabel}<svg className="reference-sort-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true"><path d="M3 10V2m0 0L1.5 3.5M3 2l1.5 1.5M9 2v8m0 0L7.5 8.5M9 10l1.5-1.5"/></svg></button>{original.kind==='matrix'&&module.category!=='analysis'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
   </div>
   {exportError&&<p role="alert" className="finance-pending">{exportError}</p>}
   {view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={module.module_name+'原始数据表'}>
