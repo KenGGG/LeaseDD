@@ -484,6 +484,24 @@ test('unaligned legacy tag arrays are not attached to the wrong record group',()
  assert.equal(view.tables[1].rowTags,undefined);
 });
 
+test('precise receivables map flat source company tags and codes to their original period rows',()=>{
+ const code='B66D0129B66D0129B66D0129B66D0129';
+ const view=buildEnterpriseModuleView({module_key:'other_receivables_top_five',category:'notes',
+  raw_payload:{data:{head:['单位名称','2025年年报','公司甲','公司乙','2024年年报','历史公司']}},
+  parsed_payload:{
+   head:[['单位名称','公司甲','公司乙'],['单位名称','历史公司']],
+   rows:[[['期末余额','906.826905','281.55986']],[['期末余额','100']]],
+   metadata:{report:['2025年年报','2024年年报'],precise_record:true,
+    companyTag:[[],[],[],['民企'],[],[]],itCode:['','','',code,'','']},
+  },
+ });
+ assert.equal(view.kind,'records');
+ assert.deepEqual(view.tables[0].rowTags,[{company:[],negative:[]},{company:['民企'],negative:[]}]);
+ assert.deepEqual(view.tables[0].rowLinks,[null,'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+code]);
+ assert.deepEqual(view.tables[1].rowTags,[{company:[],negative:[]}]);
+ assert.deepEqual(view.tables[1].rowLinks,[null]);
+});
+
 test('customer note repeats year groups under one matching header without merging changed layouts',()=>{
  const tables=[
   {title:'2025年年报',headers:['客户','金额'],rows:[['第一名','6亿']]},

@@ -137,7 +137,8 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
         for column,value in enumerate(row,1):
             cell=sheet.cell(row_index,column)
             if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
-                prefix='###,###,##0' if getattr(module,'module_key','') in {'restricted_assets','main_business'} else '#,##0'
+                prefix='###,###,##0' if getattr(module,'module_key','') in {
+                    'restricted_assets','main_business','receivables_top_five','other_receivables_top_five'} else '#,##0'
                 cell.value=value;cell.number_format=(cell_formats or {}).get((row_index,column),prefix+('.'+'0'*decimals if decimals else ''))
             elif source_style and column==1 and row_index>2:
                 cell.value=value;cell.number_format='General' if isinstance(value,str) else '0'
@@ -179,9 +180,11 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         'receivables_aging','prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'}
     impairment_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'receivables_impairment','other_receivables_impairment'})
+    precise_top_five=bool(heads and isinstance(heads[0],list) and metadata.get('precise_record') is True and
+                          getattr(module,'module_key','') in {'receivables_top_five','other_receivables_top_five'})
     numbered_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'major_customers','major_suppliers','prepayments_top_five','receivables_impairment',
-        'other_receivables_impairment','payables_over_one_year'})
+        'other_receivables_impairment','payables_over_one_year'}) or precise_top_five
     tag_columns=['companyTag'] if getattr(module,'module_key','')=='other_receivables_impairment' else ['companyTag','negativeTag']
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
@@ -198,11 +201,26 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                      (not window_years or (_order(periods[index])//10)*4+_order(periods[index])%10>latest_quarter-window_years*4) and
                      ('all' in choices or _kind(periods[index]) in choices or 'latest' in choices and _order(periods[index])==latest)]
             indices.sort(key=lambda index:_order(periods[index]),reverse=descending)
+        precise_tags={}
+        if precise_top_five:
+            flat_head=((getattr(module,'raw_payload',{}) or {}).get('data') or {}).get('head') or metadata.get('headExport') or []
+            flat_tags=metadata.get('companyTag') or []
+            if len(flat_head)==len(flat_tags):
+                markers=[position for position,label in enumerate(flat_head) if position and
+                         re.fullmatch(r'\d{4}年(?:年报|中报)',str(label))]
+                if len(markers)==len(heads):
+                    for group,start_at in enumerate(markers):
+                        end_at=markers[group+1] if group+1<len(markers) else len(flat_head)
+                        if [flat_head[0],*flat_head[start_at+1:end_at]]==heads[group]:
+                            precise_tags[group]=flat_tags[start_at+1:end_at]
+        show_precise_tags=precise_top_five and any(
+            any(isinstance(tags,list) and tags for tags in precise_tags.get(index,[])) for index in indices)
         for index in indices:
             head=heads[index]
             columns=rows[index] if index<len(rows) else []
-            header=[head[0],*[column[0] for column in columns]]
+            header=[head[0],*[str(column[0])+'('+unit+')' if precise_top_five and column[0]=='期末余额' else column[0] for column in columns]]
             if impairment_record:header.extend('企业类型标签' if key=='companyTag' else '负面信息标签' for key in tag_columns)
+            if show_precise_tags:header.append('企业类型标签')
             if header!=previous_header:output.append(header);previous_header=header
             output.append([_period(reports[index]) if index<len(reports) else str(index+1)])
             tags=[]
@@ -226,6 +244,10 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     values.append(value)
                 if impairment_record:
                     values.extend([' '.join(map(str,tag[i+1])).strip() if i+1<len(tag) and isinstance(tag[i+1],list) else None for tag in tags])
+                if show_precise_tags:
+                    group_tags=precise_tags.get(index,[])
+                    row_tags=group_tags[i] if i<len(group_tags) else []
+                    values.append(' '.join(map(str,row_tags)).strip() or None if isinstance(row_tags,list) else None)
                 output.append([name,*values])
     else:
         if heads and rows and all(isinstance(row,list) and re.fullmatch(r'\d{8}',str(row[0])) for row in rows):

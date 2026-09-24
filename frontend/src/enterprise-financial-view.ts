@@ -148,7 +148,21 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
  if(heads.length&&Array.isArray(heads[0])){
   const reports=strings(metadata.report);
   const aligned=(value:unknown)=>Array.isArray(value)&&value.length===heads.length&&value.every((row,index)=>Array.isArray(row)&&row.length===strings(heads[index]).length)?value as unknown[][]:null;
-  const codeGroups=aligned(metadata.itcode),companyGroups=aligned(metadata.companyTag),negativeGroups=aligned(metadata.negativeTag);
+  const flatHead=strings(object(object(module.raw_payload).data).head);
+  const flatGroups=(value:unknown)=>{
+   if(metadata.precise_record!==true||!filteredRecordNotes.has(module.module_key)||!Array.isArray(value)||value.length!==flatHead.length)return null;
+   const markers=flatHead.flatMap((label,index)=>index&&/^\d{4}年(?:年报|中报)$/.test(label)?[index]:[]);
+   if(markers.length!==heads.length||markers[0]!==1)return null;
+   const groups:unknown[][]=[];
+   for(let index=0;index<markers.length;index++){
+    const start=markers[index],end=markers[index+1]??flatHead.length,labels=strings(heads[index]);
+    if(labels.length!==end-start||labels[0]!==flatHead[0]||labels.slice(1).some((label,row)=>label!==flatHead[start+1+row]))return null;
+    groups.push([value[0],...value.slice(start+1,end)]);
+   }
+   return groups;
+  };
+  const codeGroups=aligned(metadata.itcode)||flatGroups(metadata.itCode),
+   companyGroups=aligned(metadata.companyTag)||flatGroups(metadata.companyTag),negativeGroups=aligned(metadata.negativeTag);
   return {kind:'records',tables:heads.map((head,index)=>{
    const labels=strings(head),columns=rowArray(rows[index]);
    const codes=codeGroups?.[index],companyTags=companyGroups?.[index],negativeTags=negativeGroups?.[index];

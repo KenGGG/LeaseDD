@@ -176,9 +176,54 @@ def test_precise_receivables_excel_uses_saved_full_value_and_declared_source_uni
         'rows':[[['期末余额','68137.782993'],['占总额比例(%)','28.14']]],
         'metadata':{'report':['2025年年报'],'precise_record':True}})
     book,values=rows(export_enterprise_workbook(module,unit='元',decimals=2))
-    assert values[2]==('第一名',681377829.93,28.14)
-    assert book.active['B3'].number_format=='#,##0.00'
+    assert values[1]==('序号','单位名称','期末余额(元)','占总额比例(%)')
+    assert values[3]==('2','第一名',681377829.93,28.14)
+    assert book.active['C4'].number_format=='###,###,##0.00'
     assert module.parsed_payload['rows'][0][0][1]=='68137.782993'
+    book.close()
+
+
+def test_precise_receivables_source_export_omits_tags_outside_selected_years():
+    module=SimpleNamespace(module_key='receivables_top_five',module_name='前五名应收账款',category='notes',
+                           request_params={'unit':'万元'},
+                           raw_payload={'data':{'head':['单位名称','2025年年报','第一名','2019年年报','旧客户']}},
+                           parsed_payload={
+        'head':[['单位名称','第一名'],['单位名称','旧客户']],
+        'rows':[[['期末余额','68137.782993'],['占总额比例(%)','28.14111'],['年增长率(%)','-8.075923']],
+                [['期末余额','100'],['占总额比例(%)','1'],['年增长率(%)','2']]],
+        'metadata':{'report':['2025年年报','2019年年报'],'precise_record':True,
+                    'companyTag':[[],[],[],[],['民企']]}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual',window_years=5))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None,None),
+        ('序号','单位名称','期末余额(万元)','占总额比例(%)','年增长率(%)'),
+        ('1','2025年年报',None,None,None),
+        ('2','第一名',68137.782993,28.14111,-8.075923)]
+    assert book.active['A4'].data_type=='s'
+    assert book.active['C4'].number_format=='###,###,##0.00'
+    assert module.parsed_payload['metadata']['companyTag'][-1]==['民企']
+    book.close()
+
+
+def test_precise_other_receivables_source_export_aligns_selected_row_tags():
+    module=SimpleNamespace(module_key='other_receivables_top_five',module_name='前五名其他应收款',category='notes',
+                           request_params={'unit':'万元'},
+                           raw_payload={'data':{'head':['单位名称','2025年年报','公司甲','公司乙']}},
+                           parsed_payload={
+        'head':[['单位名称','公司甲','公司乙']],
+        'rows':[[['期末余额','906.826905','281.55986'],['占总额比例(%)','37.7','11.71'],
+                 ['年增长率(%)',None,None]]],
+        'metadata':{'report':['2025年年报'],'precise_record':True,
+                    'companyTag':[[],[],[],['民企']]}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual',window_years=5))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None,None,None),
+        ('序号','单位名称','期末余额(万元)','占总额比例(%)','年增长率(%)','企业类型标签'),
+        ('1','2025年年报',None,None,None,None),
+        ('2','公司甲',906.826905,37.7,None,None),
+        ('3','公司乙',281.55986,11.71,None,'民企')]
+    assert book.active['F5'].data_type=='s'
+    assert module.parsed_payload['metadata']['companyTag'][-1]==['民企']
     book.close()
 
 

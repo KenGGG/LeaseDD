@@ -96,8 +96,10 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
             page.get_by_role("button", name="导出Excel").click()
         book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
         values = list(book.active.values)
-        assert [row[0] for row in values if row[0] and "年" in str(row[0])] == ["2025年中报"]
-        assert values[-1] == ("第一名", 592001234.56)
+        assert values[0][0] == '数据来源：企业预警通'
+        assert values[1] == ('序号', '单位名称', '期末余额(元)')
+        assert [row[1] for row in values if len(row)>1 and row[1] and "年" in str(row[1])] == ["2025年中报"]
+        assert values[-1] == ('2', "第一名", 592001234.56)
         book.close()
         browser.close()
 
@@ -351,7 +353,9 @@ def test_major_customer_record_columns_and_export_match_source_reading_area(monk
         with page.expect_download() as event:
             page.get_by_role('button', name='导出Excel').click()
         book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
-        assert book.active.max_column == 3
+        assert book.active.max_column == 4
+        assert book.active.cell(1, 1).value == '数据来源：企业预警通'
+        assert tuple(cell.value for cell in book.active[2]) == ('序号', '客户名称', '销售额', '占销售总额比例')
         book.close()
         page.screenshot(path='/tmp/leasedd-major-customer-layout-fixture.png', full_page=False)
         browser.close()
