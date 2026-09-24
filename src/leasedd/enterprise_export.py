@@ -137,7 +137,8 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
         for column,value in enumerate(row,1):
             cell=sheet.cell(row_index,column)
             if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
-                cell.value=value;cell.number_format=(cell_formats or {}).get((row_index,column),'#,##0'+('.'+'0'*decimals if decimals else ''))
+                prefix='###,###,##0' if getattr(module,'module_key','') in {'restricted_assets','main_business'} else '#,##0'
+                cell.value=value;cell.number_format=(cell_formats or {}).get((row_index,column),prefix+('.'+'0'*decimals if decimals else ''))
             elif source_style and column==1 and row_index>2:
                 cell.value=value;cell.number_format='General' if isinstance(value,str) else '0'
             else:
@@ -244,8 +245,17 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
             raw_data=(getattr(module,'raw_payload',{}) or {}).get('data') or {}
             export_headers=metadata.get('headExport') or []
             column_types=next((row.get('values') or [] for row in rows if isinstance(row,dict) and row.get('key')=='dataType'),[])
-            for index,row in enumerate(_flatten(rows,raw_data.get('dataList') or [])):
+            flat_rows=list(_flatten(rows,raw_data.get('dataList') or []))
+            business_serials={}
+            if getattr(module,'module_key','')=='main_business':
+                active={str(row.get('key')) for row in flat_rows if any(i<len(row.get('values') or []) and not _blank(row['values'][i]) for i in indices)}
+                suffixes={match[1] for key in active if (match:=re.fullmatch(r'(?:incomePrefix|costPrefix|profitPrefix)_(.+)',key))}
+                selected=[index for index,row in enumerate(flat_rows) if str(row.get('key')) in active or
+                          (match:=re.fullmatch(r'(?:incomePrefix|costPrefix|profitPrefix)_(.+)',str(row.get('key')))) and match[1] in suffixes]
+                business_serials={index:serial for serial,index in enumerate(selected,1)}
+            for index,row in enumerate(flat_rows):
                 if trend_key and row.get('key') not in {trend_key,trend_key+'_2'}:continue
+                if getattr(module,'module_key','')=='main_business' and index not in business_serials:continue
                 source_unit=row.get('unit') or ''
                 if not source_unit and getattr(module,'module_key','')=='main_business':
                     if re.search(r'[（(]%[）)]$',str(row.get('name',''))):source_unit='%'
@@ -266,7 +276,17 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     if suffix and suffix[1] in {*UNIT_SCALES,'%','倍','天','元/股'}:
                         label=label[:suffix.start()]+'（'+display_unit+'）'
                     else:label+='（'+display_unit+'）'
+                if getattr(module,'module_key','')=='main_business':
+                    label=re.sub(r'（([^（）]+)）$',r'(\1)',label)
+                    blank=metadata.get('blankNum') or []
+                    indent=int(blank[index+1] or 0) if index+1<len(blank) else 0
+                    label=' '*(2*indent)+label
                 converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
+                if getattr(module,'module_key','')=='main_business' and row.get('key')=='conversionRate':
+                    for position,value in enumerate(converted):
+                        if re.fullmatch(r'-?\d+(?:\.\d+)?',str(value)):
+                            converted[position]=Decimal(str(value))
+                            cell_formats[(len(output)+2,position+3)]='General'
                 if numeric_flat_note:
                     for position,value in enumerate(values):
                         match=re.fullmatch(r'(-?\d[\d,]*(?:\.\d+)?)(万|亿|元)',str(value).strip())
@@ -275,7 +295,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                             cell_formats[(len(output)+2,position+3)]='###,###,##0.00"'+match[2]+'"'
                         elif _blank(value):converted[position]=None
                 output.append([label,*converted])
-                source_numbers.append(index+1)
+                source_numbers.append(business_serials[index] if business_serials else index+1)
         elif heads:output=[heads,*rows]
         else:output=[['企业预警通该栏目暂无数据' if metadata.get('empty') else '当前栏目数据尚待核对']]
     if trend_key:
@@ -291,14 +311,15 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if len(unique_currencies)>1:
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
+    restricted=getattr(module,'module_key','')=='restricted_assets'
     numbered_note=getattr(module,'module_key','') in {
         'cash_notes','inventory_notes','finance_costs','receivables_aging',
-        'prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'} and bool(periods)
+        'prepayments_aging','other_receivables_aging','nonrecurring_gains_losses','restricted_assets','main_business'} and bool(periods)
     source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or numbered_note)
     if numbered_record:
         source_style=True
         source_numbers=list(map(str,range(1,len(output))))
     return _workbook_bytes(module,output,source_style,decimals,
-                           source_label=str(heads[0][0]) if numbered_record else str(heads[0]) if numbered_note and numeric_flat_note else '项目名称' if numbered_note else '指标名称',
-                           row_numbers=source_numbers if numbered_record else [str(number) for number in source_numbers] if numbered_note else None,
+                           source_label=str(heads[0][0]) if numbered_record else '报告期' if restricted else str(heads[0]) if numbered_note and numeric_flat_note else '项目名称' if numbered_note else '指标名称',
+                           row_numbers=source_numbers if numbered_record else list(map(str,range(1,len(output)))) if restricted else [str(number) for number in source_numbers] if numbered_note else None,
                            cell_formats=cell_formats)

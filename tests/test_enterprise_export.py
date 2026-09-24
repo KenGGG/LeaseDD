@@ -142,12 +142,13 @@ def test_business_export_filters_standalone_types_and_uses_request_unit_only_for
             {'key':'900042','name':'毛利率(%)','unit':'','values':['20','2','3']},
             {'key':'conversionRate','name':'转换汇率','unit':'','values':['7','7','7']}]})
     book,values=rows(export_enterprise_workbook(module,unit='亿元'))
-    assert values[2][1:]==(1,12.5,100)
-    assert values[3][1:]==(20,2,3)
-    assert values[4][1:]==('7','7','7')
+    assert values[1][:2]==('序号','项目名称')
+    assert next(row[2:] for row in values if row[1]=='营业收入(亿元)')==(1,12.5,100)
+    assert next(row[2:] for row in values if row[1]=='毛利率(%)')==(20,2,3)
+    assert next(row[2:] for row in values if row[1]=='转换汇率')==(7,7,7)
     book.close()
     book,values=rows(export_enterprise_workbook(module,unit='亿元',data_kinds='同比'))
-    assert values[2][1:]==(12.5,)
+    assert next(row[2:] for row in values if row[1]=='营业收入(亿元)')==(12.5,)
     book.close()
 
 
@@ -283,6 +284,59 @@ def test_other_verified_flat_notes_keep_raw_units_even_if_source_excel_format_is
         assert book.active['C3'].number_format==number_format
         assert module.parsed_payload['rows'][0][1]==raw
         book.close()
+
+
+def test_restricted_assets_excel_numbers_only_visible_rows_like_source():
+    module=SimpleNamespace(module_key='restricted_assets',module_name='受限资产',category='notes',request_params={},raw_payload={},parsed_payload={
+        'periods':['2026年中报'],
+        'rows':[
+            {'key':'deadline','name':'截止日期','values':['2026-06-30']},
+            {'key':'moneyFunds','name':'货币资金','values':['157841.954409']},
+            {'key':'empty','name':'其他流动资产','values':[None]},
+            {'key':'fixedAssets','name':'固定资产','values':['274736.654869']}],
+        'metadata':{'headExport':['报告期','截止日期','货币资金（万元）','其他流动资产（万元）','固定资产（万元）']}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+    assert values==[
+        ('数据来源：企业预警通',None,None),
+        ('序号','报告期','2026年中报'),
+        ('1','截止日期','2026-06-30'),
+        ('2','货币资金（万元）',157841.954409),
+        ('3','固定资产（万元）',274736.654869)]
+    assert book.active['A5'].data_type=='s'
+    assert book.active['C4'].number_format=='###,###,##0.00'
+    assert module.parsed_payload['rows'][1]['values'][0]=='157841.954409'
+    book.close()
+
+
+def test_main_business_excel_renumbers_selected_period_rows_but_counts_hidden_sibling():
+    module=SimpleNamespace(module_key='main_business',module_name='主营构成',category='notes',
+                           request_params={'unitCode':'4'},raw_payload={},parsed_payload={
+        'periods':['2025年年报','2020年年报'],
+        'rows':[
+            {'key':'dataType','name':'数据类型','values':['原始报表','原始报表']},
+            {'key':'deadline','name':'截止日期','values':['2025-12-31','2020-12-31']},
+            {'key':'120050','name':'营业收入','level':1,'values':['100','50']},
+            {'key':'incomePrefix_310000','name':'产品','level':2,'values':['100','50']},
+            {'key':'incomePrefix_999','name':'历史产品','level':3,'values':[None,'50']},
+            {'key':'incomePrefix_123','name':'细分产品','level':3,'values':['100',None]},
+            {'key':'costPrefix_123','name':'细分产品','level':3,'values':[None,None]},
+            {'key':'profitPrefix_123','name':'细分产品','level':3,'unit':'%','values':[None,None]},
+            {'key':'conversionRate','name':'转换汇率','values':['1','1']}],
+        'metadata':{'blankNum':[0,0,0,0,2,3,3,3,3,0]}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual',window_years=5,data_kinds='原始报表'))
+    assert values==[
+        ('数据来源：企业预警通',None,None),
+        ('序号','项目名称','2025年年报'),
+        ('1','数据类型','原始报表'),
+        ('2','截止日期','2025-12-31'),
+        ('3','营业收入(万元)',100),
+        ('4','    产品(万元)',100),
+        ('5','      细分产品(万元)',100),
+        ('8','转换汇率',1)]
+    assert book.active['A8'].data_type=='s'
+    assert book.active['C8'].number_format=='General'
+    assert module.parsed_payload['rows'][5]['values'][0]=='100'
+    book.close()
 
 
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
