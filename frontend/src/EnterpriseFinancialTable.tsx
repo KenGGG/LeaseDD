@@ -70,7 +70,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  const main=module.category==='statements'||module.category==='indicators';
  const toolbar=enterpriseToolbarOptions(module);
  const inlineExportRecord=original.kind==='records'&&!periodControls;
- const recordTags=original.kind==='records'&&original.tables.some(table=>table.rowTags?.some(tags=>tags.company.length||tags.negative.length));
+ const recordTags=view.kind==='records'&&view.tables.some(table=>table.rowTags?.some(tags=>tags.company.length||tags.negative.length));
  const precisionState=enterpriseNotePrecisionState(module),preciseRecord=precisionState==='precise';
  const columnKinds=(metadata('dataType').length?metadata('dataType'):metadata('reportRange')).map(enterpriseColumnKind);
  const scopeOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.scope).filter(Boolean))].map(value=>[value,value])];

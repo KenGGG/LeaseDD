@@ -104,6 +104,37 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         browser.close()
 
 
+def test_precise_record_tag_switch_follows_visible_source_periods(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'receivables_top_five', 'module_name': '前五名应收账款', 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'a' * 64,
+        'request_params': {'menu_parent': '应收账款', 'unit': '万元'},
+        'raw_payload': {'data': {'head': ['单位名称', '2025年年报', '第一名', '2019年年报', '旧客户']}},
+        'parsed_payload': {
+            'head': [['单位名称', '第一名'], ['单位名称', '旧客户']],
+            'rows': [[['期末余额', '68137.782993']], [['期末余额', '100']]],
+            'metadata': {'report': ['2025年年报', '2019年年报'], 'precise_record': True,
+                         'companyTag': [[], [], [], [], ['民企']]},
+        },
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1600, 'height': 900})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='⊞ 应收账款').click()
+        page.get_by_role('button', name='前五名应收账款', exact=True).click()
+        table = page.locator('.enterprise-record-table')
+        assert table.get_by_role('checkbox', name='标签').count() == 0
+        page.get_by_role('button', name='10Y').click()
+        assert table.get_by_role('checkbox', name='标签').is_checked()
+        assert table.get_by_text('民企', exact=True).count() == 1
+        browser.close()
+
+
 def test_legacy_note_prompts_project_member_to_update_from_overview(monkeypatch):
     old = {**MODULE, 'parsed_payload': {
         **MODULE['parsed_payload'],
