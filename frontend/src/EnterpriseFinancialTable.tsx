@@ -68,6 +68,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  const metadata=(key:string)=>original.kind==='matrix'?[...new Set(original.rows.find(row=>row.key===key)?.values.map(text).filter(Boolean)||[])]:[];
  const main=module.category==='statements'||module.category==='indicators';
  const toolbar=enterpriseToolbarOptions(module);
+ const sparseRecord=module.module_key==='major_customers'||module.module_key==='major_suppliers';
  const precisionState=enterpriseNotePrecisionState(module),preciseRecord=precisionState==='precise';
  const columnKinds=(metadata('dataType').length?metadata('dataType'):metadata('reportRange')).map(enterpriseColumnKind);
  const scopeOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.scope).filter(Boolean))].map(value=>[value,value])];
@@ -86,7 +87,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
   }catch(error){setExportError(error instanceof Error?error.message:'Excel 导出失败，请重试。')}finally{setExporting(false)}
  }
  function toggleRow(key:string){setCollapsedRows(previous=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next})}
- return <div className={'enterprise-financial-view enterprise-reference enterprise-reference-'+module.category}>
+ return <div className={'enterprise-financial-view enterprise-reference enterprise-reference-'+module.category+(view.kind==='records'&&sparseRecord?' enterprise-reference-records':'')}>
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
   {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；请由管理员重新导入。</p>}
   <div className="enterprise-reference-toolbar">
@@ -119,12 +120,12 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
    </tbody></table>
    {!view.periods.length&&<p className="finance-empty">当前筛选无已导入期间。</p>}
   </div>:view.kind==='records'?<div className="finance-table-scroll enterprise-record-table">
-   {groupEnterpriseRecordTables(view.tables).map((group,index)=><table key={group[0].title+index} className="finance-matrix"><thead><tr>{group[0].headers.map((header,i)=><th key={i}>{header}</th>)}</tr></thead><tbody>
+   {groupEnterpriseRecordTables(view.tables).map((group,index)=>{const sparse=sparseRecord&&group[0].headers.length===3;return <table key={group[0].title+index} className={'finance-matrix'+(sparse?' enterprise-record-sparse':'')}>{sparse&&<colgroup><col style={{width:320}}/><col style={{width:145}}/><col style={{width:145}}/><col/></colgroup>}<thead><tr>{group[0].headers.map((header,i)=><th key={i}>{header}</th>)}{sparse&&<th className="enterprise-record-spacer" aria-hidden="true"/>}</tr></thead><tbody>
     {group.map((table,section)=><React.Fragment key={table.title+section}>
-     {/^\d{4}年/.test(table.title)&&<tr className="enterprise-section-row"><th colSpan={table.headers.length}>{table.title}</th></tr>}
-     {table.rows.map((row,i)=><tr key={i} className={row[0]==='合计'?'finance-total':''}>{row.map((value,j)=>j===0?<th key={j}>{text(value)}</th>:<td key={j} title={preciseRecord&&value!=null?'原值：'+text(value)+' '+(/[％%]/.test(table.headers[j])?'%':String(module.request_params?.unit||'')):undefined}>{enterpriseDisplayRecordValue(value,table.headers[j]||'',String(module.request_params?.unit||''),unit,decimals,preciseRecord)||'-'}</td>)}</tr>)}
+     {/^\d{4}年/.test(table.title)&&<tr className="enterprise-section-row"><th colSpan={table.headers.length+(sparse?1:0)}>{table.title}</th></tr>}
+     {table.rows.map((row,i)=><tr key={i} className={row[0]==='合计'?'finance-total':''}>{row.map((value,j)=>j===0?<th key={j}>{text(value)}</th>:<td key={j} title={preciseRecord&&value!=null?'原值：'+text(value)+' '+(/[％%]/.test(table.headers[j])?'%':String(module.request_params?.unit||'')):undefined}>{enterpriseDisplayRecordValue(value,table.headers[j]||'',String(module.request_params?.unit||''),unit,decimals,preciseRecord)||'-'}</td>)}{sparse&&<td className="enterprise-record-spacer" aria-hidden="true"/>}</tr>)}
     </React.Fragment>)}
-   </tbody></table>)}
+   </tbody></table>})}
    {!view.tables.length&&<p className="finance-empty">当前筛选无已导入期间。</p>}
   </div>:<p className="finance-empty">{view.unavailable?'企业预警通原站当前禁用此栏目，未计入数据采集成功项。':view.confirmed?'企业预警通该栏目暂无数据':'当前栏目数据尚待核对'}</p>}
   <details className="enterprise-source-details"><summary>数据来源与采集口径</summary><p>{module.module_name} · {module.endpoint_path}</p><p>报告期、报表类型及币种范围以当前已导入数据为准。筛选和显示换算不修改来源原值。</p><p className="finance-hash">{module.response_sha256}</p></details>

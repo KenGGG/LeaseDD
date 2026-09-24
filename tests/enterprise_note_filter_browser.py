@@ -81,6 +81,9 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         page.get_by_role("button", name="⊞ 应收账款").click()
         page.get_by_role("button", name="前五名应收账款").click()
         assert "68,137.78" in page.locator(".enterprise-record-table").inner_text()
+        heading = page.locator('.finance-heading').bounding_box()
+        toolbar = page.locator('.enterprise-reference-toolbar').bounding_box()
+        assert toolbar['y'] >= heading['y'] + heading['height'] - 2
         page.get_by_label("报告期筛选").click()
         page.locator(".reference-select-options label").filter(has_text="最新").locator("input").uncheck()
         page.locator(".reference-select-options label").filter(has_text="年报").locator("input").uncheck()
@@ -272,4 +275,47 @@ def test_financial_expense_note_does_not_invent_report_sort(monkeypatch):
         assert page.get_by_role('button', name='报告期倒序').count() == 0
         assert table.locator('tbody tr').nth(1).locator('td').first.inner_text() == '-654.91万'
         page.screenshot(path='/tmp/leasedd-financial-expense-toolbar-fixture.png', full_page=False)
+        browser.close()
+
+
+def test_major_customer_record_columns_and_export_match_source_reading_area(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'major_customers', 'module_name': '主要销售客户', 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'f' * 64,
+        'request_params': {}, 'raw_payload': {},
+        'parsed_payload': {
+            'head': [['客户名称', '第一名', '第二名', '合计']],
+            'rows': [[['销售额', '34.03亿', '29.40亿', '77.81亿'],
+                      ['占销售总额比例', '39.03%', '33.72%', '89.24%']]],
+            'metadata': {'report': ['20251231']},
+        },
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1600, 'height': 1000})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='主要销售客户', exact=True).click()
+        table = page.locator('.enterprise-record-table .finance-matrix')
+        table.wait_for()
+        widths = [cell.bounding_box()['width'] for cell in table.locator('thead th').all()]
+        assert 300 <= widths[0] <= 340
+        assert 120 <= widths[1] <= 170
+        assert 120 <= widths[2] <= 170
+        assert widths[3] >= 300
+        label_padding = float(table.locator('tbody tr').nth(1).locator('th').first.evaluate('(element) => getComputedStyle(element).paddingLeft').replace('px', ''))
+        assert 24 <= label_padding <= 34
+        assert page.get_by_role('button', name='导出Excel').bounding_box()['y'] <= page.locator('.finance-heading h2').bounding_box()['y'] + 18
+        assert table.bounding_box()['y'] <= 160
+        assert '34.03亿' in table.locator('tbody').inner_text()
+        assert '89.24%' in table.locator('tbody').inner_text()
+        with page.expect_download() as event:
+            page.get_by_role('button', name='导出Excel').click()
+        book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
+        assert book.active.max_column == 3
+        book.close()
+        page.screenshot(path='/tmp/leasedd-major-customer-layout-fixture.png', full_page=False)
         browser.close()

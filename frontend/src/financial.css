@@ -428,3 +428,13 @@
  .enterprise-reference-notes .enterprise-source-table .finance-matrix td,.enterprise-reference-notes .enterprise-source-table .finance-matrix thead th:not(:first-child){min-width:146px}
  .enterprise-reference .enterprise-source-table,.enterprise-reference .enterprise-record-table{margin:0 10px 10px;max-height:calc(100vh - 200px)}
 }
+@media(min-width:1250px){
+ .enterprise-reference-records{position:relative}
+ .enterprise-reference-records .enterprise-reference-toolbar{position:absolute;top:10px;right:12px}
+ .enterprise-reference-records .enterprise-record-table{margin-top:5px}
+ .enterprise-record-sparse.finance-matrix{table-layout:fixed}
+ .enterprise-record-sparse.finance-matrix th,.enterprise-record-sparse.finance-matrix td{min-width:0;max-width:none}
+ .enterprise-record-sparse.finance-matrix tbody th{padding-left:30px}
+ .enterprise-record-sparse.finance-matrix td:not(.enterprise-record-spacer){text-align:center}
+ .enterprise-record-sparse.finance-matrix .enterprise-record-spacer{padding:0}
+}
