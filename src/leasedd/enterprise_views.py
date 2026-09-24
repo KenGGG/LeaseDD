@@ -12,9 +12,8 @@ from .statement_tables import ALIASES, clean_label
 
 
 def _increment(raw):
-    text = str(raw).strip().replace(",", "")
-    decimals = len(text.rsplit(".", 1)[1]) if "." in text else 0
-    return format(Decimal(1).scaleb(-decimals), "f")
+    disclosed = normalize_source_number(str(raw))
+    return format(Decimal(1).scaleb(disclosed.as_tuple().exponent), "f")
 
 
 def _statement_type(module):

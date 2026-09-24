@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+import pytest
+
 from leasedd.enterprise_views import enterprise_statement_views
+from leasedd.finance_extract import normalize_source_number
 
 
 def row(module_key, module_name, statement_type, names, values, unit="万元", keys=None):
@@ -113,3 +116,24 @@ def test_mixed_scope_columns_use_disclosed_scope_currency_and_export_units():
     assert [view['currency'] for view in views]==['USD','USD']
     assert [view['items'][0]['normalized_value'] for view in views]==['125000000.00','80000000.00']
     assert all(len(view['items'])==1 for view in views)
+
+
+def test_scientific_notation_is_verified_without_losing_disclosed_precision():
+    module = row(
+        "income", "利润表", "income_statement",
+        ["营业利润", "营业外收入", "营业外支出", "利润总额"],
+        [["1", None], ["8.0E-6", None], ["0", None], ["1.000008", None]],
+        unit="元",
+    )
+    first = enterprise_statement_views(SimpleNamespace(id="import-1"), [module])[0]
+    income = next(item for item in first["items"] if item["source_name"] == "营业外收入")
+    assert income["raw_value"] == "8.0E-6"
+    assert income["normalized_value"] == "0.0000080"
+    assert income["status"] == "source_verified"
+    assert income["evidence"]["source_increment"] == "0.0000001"
+    assert first["checks"][1]["status"] == "passed"
+
+
+def test_source_number_rejects_unbounded_exponents():
+    with pytest.raises(ValueError, match="invalid_source_number"):
+        normalize_source_number("1E1000000")

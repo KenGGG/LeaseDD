@@ -87,7 +87,7 @@ def normalize_source_number(value: str) -> Decimal:
     if cleaned.startswith("-"):
         negative = True
         cleaned = cleaned[1:]
-    if not re.fullmatch(r"\d+(?:\.\d+)?", cleaned):
+    if not re.fullmatch(r"\d+(?:\.\d+)?(?:[eE][+-]?\d{1,3})?", cleaned):
         raise ValueError("invalid_source_number")
     try:
         number = Decimal(cleaned)
