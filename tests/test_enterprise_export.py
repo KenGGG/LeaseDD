@@ -478,7 +478,7 @@ def test_excel_precision_guard_does_not_round_before_counting_digits():
     book.close()
 
 
-def test_cash_note_export_keeps_source_rows_and_excel_numbering():
+def test_cash_note_export_keeps_source_numbering_and_numeric_cells_with_disclosed_units():
     module = SimpleNamespace(module_key='cash_notes',module_name='货币资金', category='notes', request_params={}, raw_payload={},
         parsed_payload={'head':['项目名称','现金','银行存款','财务公司存款','其他货币资金','合计'], 'rows':[
             ['20260630','2.87万','15.73亿','','16.57亿','32.29亿'],
@@ -487,12 +487,16 @@ def test_cash_note_export_keeps_source_rows_and_excel_numbering():
     book, values = rows(export_enterprise_workbook(module))
     assert values == [('数据来源：企业预警通',None,None,None),
                       ('序号','项目名称','2026年中报','2025年年报'),
-                      ('1','现金','2.87万','1.83万'),
-                      ('2','银行存款','15.73亿','7.39亿'),
-                      ('4','其他货币资金','16.57亿','11.80亿'),
-                      ('5','合计','32.29亿','19.19亿')]
+                      ('1','现金',2.87,1.83),
+                      ('2','银行存款',15.73,7.39),
+                      ('4','其他货币资金',16.57,11.8),
+                      ('5','合计',32.29,19.19)]
     assert book.active['A3'].data_type == 's'
     assert book.active['A3'].number_format == 'General'
+    assert book.active['C3'].data_type == 'n'
+    assert book.active['C3'].number_format == '###,###,##0.00"万"'
+    assert book.active['C4'].data_type == 'n'
+    assert book.active['C4'].number_format == '###,###,##0.00"亿"'
     book.close()
 
 
