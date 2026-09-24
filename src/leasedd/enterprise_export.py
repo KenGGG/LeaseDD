@@ -36,7 +36,7 @@ def _order(period):
 def _amount(value, source_unit, target_unit, decimals):
     if value is None:return ''
     text=str(value)
-    if source_unit not in UNIT_SCALES and source_unit not in {'%','倍','天','元/股'}:return text
+    if source_unit not in UNIT_SCALES and source_unit not in {'%','倍','天','次','元/股'}:return text
     if not re.fullmatch(r'-?\d+(?:\.\d+)?(?:[eE][+-]?\d{1,3})?',text):return text
     with localcontext() as context:
         context.prec=max(50,len(text)+20)

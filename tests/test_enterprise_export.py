@@ -626,6 +626,18 @@ def test_analysis_export_keeps_source_numeric_precision_and_blank_cells():
     book.close()
 
 
+def test_analysis_turnover_counts_export_as_numeric_source_cells():
+    module=SimpleNamespace(module_name='营运能力',category='analysis',request_params={},raw_payload={},parsed_payload={
+        'periods':['2026年中报'],'rows':[
+            {'name':'报表类型','value':'reportRange','values':['合并期末']},
+            {'name':'存货周转率(次)','unit':'次','values':['4.666466']}]})
+    book,values=rows(export_enterprise_workbook(module,scopes='合并期末'))
+    assert values[3]==(2,'存货周转率(次)',4.666466)
+    assert book.active['C4'].data_type=='n'
+    assert book.active['C4'].number_format=='#,##0.00'
+    book.close()
+
+
 def test_export_preserves_large_strings_and_neutralizes_formula_cells():
     module = SimpleNamespace(module_name='主要财务指标', category='indicators', request_params={}, raw_payload={},
         parsed_payload={'periods':['2025年年报'], 'rows':[
