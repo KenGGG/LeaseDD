@@ -778,11 +778,25 @@ class _PlaywrightSession:
         raise EnterpriseWarningError("structure_changed")
 
     def menu(self, company_code: str) -> list[dict[str, Any]]:
+        from playwright.sync_api import Error as PlaywrightError
         self._navigate_authenticated(f"{self.base}/detail/enterprise/financialStatements?code={company_code}&type=company")
         self.page.get_by_text("主要财务指标", exact=True).first.wait_for(timeout=15_000)
         seen = {name for _, name, *_ in MODULES if self.page.get_by_text(name, exact=True).count()}
-        for group in ("财务分析", "财务附注"):
-            self.page.get_by_text(group, exact=True).click(force=True)
+        for group, stage in (("财务分析", "menu_group_analysis"), ("财务附注", "menu_group_notes")):
+            target = self._menu_entry(group, '.pro-menu-submenu-title')
+            try:
+                if not target.evaluate("e=>e.closest('.ant-tree-treenode')?.classList.contains('ant-tree-treenode-switcher-open')"):
+                    target.click(force=True)
+            except PlaywrightError as error:
+                try:
+                    matches = target.count()
+                    visible = target.first.is_visible() if matches else False
+                except PlaywrightError:
+                    matches, visible = None, None
+                raise EnterpriseWarningError('browser_unavailable', {
+                    'stage': stage, 'timeout': 'Timeout' in str(error).splitlines()[0],
+                    'matches': matches, 'visible': visible,
+                }) from None
             self.page.locator(".ant-tree-list-holder").evaluate_all("els => els.forEach(e => e.scrollTop = e.scrollHeight)")
             self.page.wait_for_timeout(800)
             seen.update(name for _, name, *_ in MODULES if self.page.get_by_text(name, exact=True).count())

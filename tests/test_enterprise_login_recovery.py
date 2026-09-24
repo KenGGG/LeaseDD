@@ -108,6 +108,97 @@ def test_waits_for_saved_login_to_enable_submit():
     assert page.clicks.count("登录") == 1
 
 
+@pytest.mark.parametrize(('failing_group', 'expected_stage'), [
+    ('财务分析', 'menu_group_analysis'),
+    ('财务附注', 'menu_group_notes'),
+])
+def test_financial_menu_click_timeout_identifies_group_without_leaking_page(failing_group, expected_stage):
+    from playwright.sync_api import Error
+
+    class MenuElement:
+        @property
+        def first(self):
+            return self
+
+        def __init__(self, label):
+            self.label = label
+
+        def wait_for(self, **kwargs):
+            pass
+
+        def count(self):
+            return 1
+
+        def is_visible(self):
+            return True
+
+        def evaluate(self, script):
+            return False
+
+        def click(self, **kwargs):
+            if self.label == failing_group:
+                raise Error('Locator.click: Timeout 30000ms exceeded.\nCall log: secret-page-url')
+
+    class MenuPage:
+        def get_by_text(self, label, **kwargs):
+            return MenuElement(label)
+
+        def locator(self, selector):
+            return SimpleNamespace(evaluate_all=lambda expression: None)
+
+        def wait_for_timeout(self, milliseconds):
+            pass
+
+    browser = session(MenuPage())
+    browser.base = 'https://www.qyyjt.cn'
+    browser._navigate_authenticated = lambda url: None
+    browser._menu_entry = lambda name, selector: MenuElement(name)
+    with pytest.raises(EnterpriseWarningError) as caught:
+        browser.menu('company-code')
+    assert caught.value.code == 'browser_unavailable'
+    assert caught.value.details == {'stage': expected_stage, 'timeout': True,
+                                    'matches': 1, 'visible': True}
+    assert 'secret-page-url' not in str(caught.value.details)
+
+
+def test_financial_menu_uses_virtual_tree_lookup_for_notes_group():
+    class TextElement:
+        @property
+        def first(self):
+            return self
+
+        def wait_for(self, **kwargs):
+            pass
+
+        def count(self):
+            return 0
+
+        def click(self, **kwargs):
+            raise AssertionError('unmounted virtual note group must not be clicked')
+
+    class LocatedGroup:
+        def __init__(self, name, clicked):
+            self.name, self.clicked = name, clicked
+
+        def evaluate(self, script):
+            return False
+
+        def click(self, **kwargs):
+            self.clicked.append(self.name)
+
+    page = SimpleNamespace(get_by_text=lambda *args, **kwargs: TextElement(),
+                           locator=lambda selector: SimpleNamespace(evaluate_all=lambda script: None),
+                           wait_for_timeout=lambda milliseconds: None)
+    browser = session(page)
+    browser.base = 'https://www.qyyjt.cn'
+    browser._navigate_authenticated = lambda url: None
+    clicked = []
+    browser._menu_entry = lambda name, selector: LocatedGroup(name, clicked)
+    modules = browser.menu('company-code')
+    assert len(modules) == 40
+    assert clicked == ['财务分析', '财务附注']
+
+
 class CapturePage:
     def __init__(self):
         self.listeners = []
