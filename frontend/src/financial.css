@@ -305,6 +305,7 @@
 .enterprise-workspace .finance-nav .finance-subnav{font-size:13px;padding-left:22px}
 .enterprise-workspace .finance-nav .finance-leaf{padding-left:36px;white-space:normal}
 .enterprise-workspace .finance-nav>button.active{background:linear-gradient(100deg,#0870ff,#05a1ed);color:#fff;box-shadow:none}
+.enterprise-workspace .finance-nav>button.section-open{font-weight:700;color:#26384f}
 .enterprise-workspace .enterprise-panel{display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;margin:0;border:0;border-bottom:1px solid #edf1f7;border-radius:0;font-size:12px;align-items:center}
 .enterprise-workspace .enterprise-panel strong{font-weight:500}
 .enterprise-updated{color:#6e7b8b}

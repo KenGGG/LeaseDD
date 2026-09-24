@@ -124,6 +124,25 @@ def test_selected_note_leaf_remains_visible_after_switching_to_statement():
         browser.close()
 
 
+def test_selected_note_uses_one_highlighted_leaf_not_two_blue_rows():
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path="/usr/bin/google-chrome")
+        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        page.route("**/api/**", serve)
+        page.goto(os.getenv("LEASEDD_BROWSER_URL", "http://172.30.10.150:5173"))
+        page.get_by_role("button", name="附注测试项目").click()
+        page.get_by_role("button", name="财务核对", exact=True).click()
+        nav = page.get_by_role("navigation", name="财务数据栏目")
+        parent = nav.get_by_role("button", name="财务附注", exact=True)
+        parent.click()
+        nav.get_by_role("button", name="⊞ 应收账款").click()
+        selected = nav.get_by_role("button", name="前五名应收账款")
+        selected.click()
+        assert parent.evaluate("element => getComputedStyle(element).backgroundImage") == "none"
+        assert selected.evaluate("element => getComputedStyle(element).backgroundImage").startswith("linear-gradient(")
+        browser.close()
+
+
 def test_precise_record_tag_switch_follows_visible_source_periods(monkeypatch):
     monkeypatch.setattr(__import__(__name__), 'MODULE', {
         'module_key': 'receivables_top_five', 'module_name': '前五名应收账款', 'category': 'notes',

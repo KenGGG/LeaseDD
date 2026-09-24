@@ -86,9 +86,9 @@ export default function FinancialWorkspace({statements,docs,pid,writer,busy,perf
   <nav className="finance-nav" aria-label="财务数据栏目"><div className="finance-nav-title">财务数据</div>
    <button className={type==='metrics'?'active':''} onClick={()=>selectTab('metrics')}>主要财务指标</button>
    {Object.entries(statementLabels).map(([key,label])=><button key={key} className={type===key?'active':''} onClick={()=>selectTab(key as typeof type)}>{label}</button>)}
-   <button className={type==='analysis'?'active':''} onClick={()=>selectTab('analysis')}>财务分析</button>
+   <button className={type==='analysis'?(enterprise?.source_type==='enterprise_warning'?'section-open':'active'):''} aria-expanded={type==='analysis'} onClick={()=>selectTab('analysis')}>财务分析</button>
    {type==='analysis'&&(enterprise?.source_type==='enterprise_warning'?enterpriseAnalysis.map(module=><button key={module.module_key} className={'finance-subnav '+(analysisCategory===(module.module_name||module.module_key)?'active':'')} onClick={()=>setAnalysisCategory(module.module_name||module.module_key)}>{module.module_name||module.module_key}</button>):analysisCategories.map(c=><button key={c} className={'finance-subnav '+(analysisCategory===c?'active':'')} onClick={()=>setAnalysisCategory(c)}>{c}</button>))}
-   <button className={type==='notes'?'active':''} onClick={()=>selectTab('notes')}>财务附注</button>
+   <button className={type==='notes'?(enterprise?.source_type==='enterprise_warning'?'section-open':'active'):''} aria-expanded={type==='notes'} onClick={()=>selectTab('notes')}>财务附注</button>
    {type==='notes'&&(enterprise?.source_type==='enterprise_warning'?<EnterpriseNotesNavigation modules={enterpriseNotes} selected={notesCategory} onSelect={setNotesCategory}/>:noteCategories.map(c=><React.Fragment key={c}><button className={'finance-subnav '+(noteParent(notesCategory)===c?'active':'')} onClick={()=>setNotesCategory(noteGroups[c]?.[0]||c)}>{c}</button>{noteParent(notesCategory)===c&&noteGroups[c]?.map(child=><button key={child} className={'finance-subnav finance-leaf '+(notesCategory===child?'active':'')} onClick={()=>setNotesCategory(child)}>{noteLabel(child)}</button>)}</React.Fragment>))}
   </nav>
   <section className="finance-content">
