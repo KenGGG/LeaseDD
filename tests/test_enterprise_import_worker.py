@@ -139,7 +139,28 @@ def test_formula_conflict_is_warning_not_failed_import(tmp_path):
         assert record.quality_state == "warning"
 
 
-@pytest.mark.parametrize("code", ["authentication_required", "login_expired", "browser_unavailable", "profile_missing", "profile_in_use"])
+def test_terminal_menu_failure_marks_import_failed_and_retryable(tmp_path):
+    class UnavailableMenu(FakeCollector):
+        def enumerate_modules(self, company_code):
+            raise EnterpriseWarningError("browser_unavailable")
+
+    app, factory, _, _, _, task_id, import_id = seeded(tmp_path, UnavailableMenu())
+    assert run_once(app)
+    assert run_once(app)
+    assert run_once(app)
+    with factory() as db:
+        task = db.get(Task, task_id)
+        record = db.get(EnterpriseImport, import_id)
+        assert task.state == "failed"
+        assert task.reason == "browser_unavailable"
+        assert record.state == "failed"
+        assert record.error == "browser_unavailable"
+        assert len(record.module_status) == len(MODULES)
+        assert all(value == {"state": "failed", "error": "browser_unavailable"}
+                   for value in record.module_status.values())
+
+
+@pytest.mark.parametrize("code", ["authentication_required", "login_expired", "browser_unavailable", "profile_missing", "profile_in_use", "source_request_unavailable"])
 def test_session_failure_stops_remaining_modules_and_preserves_successes(tmp_path, code):
     class InterruptedCollector(FakeCollector):
         def collect_module(self, company_code, module):

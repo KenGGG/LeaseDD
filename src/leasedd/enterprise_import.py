@@ -88,7 +88,7 @@ def run_enterprise_import(app, task_id, lease_token):
             collected = collector.collect_module(company_code, module)
         except Exception as error:
             code = getattr(error, "code", "module_collection_failed")
-            session_failed = code in {"authentication_required", "login_expired", "browser_unavailable", "profile_missing", "profile_in_use"}
+            session_failed = code in {"authentication_required", "login_expired", "browser_unavailable", "profile_missing", "profile_in_use", "source_request_unavailable"}
             with app.state.db.begin() as db:
                 task = db.get(Task, task_id)
                 _active(task, lease_token)

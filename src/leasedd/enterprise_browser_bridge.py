@@ -12,6 +12,7 @@ import os
 import re
 import socket
 import socketserver
+from playwright.sync_api import Error as PlaywrightError
 import stat
 import struct
 from typing import Any, Callable
@@ -99,6 +100,9 @@ class _Handler(socketserver.BaseRequestHandler):
             answer = {'ok': True, 'value': self.server.execute(request)}
         except EnterpriseWarningError as error:
             answer = {'ok': False, 'code': error.code, 'details': error.details}
+        except PlaywrightError as error:
+            code = 'source_request_unavailable' if 'Failed to fetch' in str(error) else 'browser_unavailable'
+            answer = {'ok': False, 'code': code}
         except (OSError, ValueError, json.JSONDecodeError, struct.error):
             answer = {'ok': False, 'code': 'structure_changed'}
         try:

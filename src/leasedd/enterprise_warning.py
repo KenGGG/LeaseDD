@@ -74,6 +74,28 @@ class EnterpriseWarningError(RuntimeError):
         super().__init__(code)
 
 
+def fetch_core_variant(page, request: dict[str, Any]) -> dict[str, Any]:
+    """Retry one transient provider-network failure without changing source values."""
+    from playwright.sync_api import Error
+
+    for attempt in range(2):
+        try:
+            return page.evaluate("""async ({path,params,headers})=>{
+                const query=new URLSearchParams();
+                for(const [key,value] of Object.entries(params))
+                    for(const item of Array.isArray(value)?value:[value])query.append(key,String(item));
+                const response=await fetch(path+'?'+query,{headers,credentials:'include',signal:AbortSignal.timeout(30000)});
+                if(!response.ok)throw new Error('financial_request_failed');
+                return response.json();
+            }""", request)
+        except Error as error:
+            if 'Failed to fetch' not in str(error):
+                raise
+            if attempt:
+                raise EnterpriseWarningError('source_request_unavailable') from None
+            page.wait_for_timeout(2000)
+
+
 def history_request_params(params: dict[str, Any], source_years: list[str]) -> dict[str, Any]:
     years=sorted({str(year) for year in source_years if re.fullmatch(r'\d{4}',str(year))})
     dates=params.get('reportDate') or []
@@ -733,14 +755,7 @@ class _PlaywrightSession:
                 params=history_request_params(matches[-1][2],years)
                 self.page.mouse.move(0,0)
                 def fetch_variant(selection):
-                    return self.page.evaluate("""async ({path,params,headers})=>{
-                    const query=new URLSearchParams();
-                    for(const [key,value] of Object.entries(params))
-                        for(const item of Array.isArray(value)?value:[value])query.append(key,String(item));
-                    const response=await fetch(path+'?'+query,{headers,credentials:'include',signal:AbortSignal.timeout(30000)});
-                    if(!response.ok)throw new Error('financial_request_failed');
-                    return response.json();
-                }""",{'path':module.endpoint_path,'params':selection,'headers':headers})
+                    return fetch_core_variant(self.page, {'path':module.endpoint_path,'params':selection,'headers':headers})
                 variants=[]
                 for currency in ('O','CNY','USD','JPY','HKD','GBP','EUR','CAD','AUD'):
                     for rate in ('1','2'):

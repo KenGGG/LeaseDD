@@ -97,3 +97,39 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         assert values[-1] == ("第一名", 592001234.56)
         book.close()
         browser.close()
+
+
+def test_desktop_financial_table_keeps_source_readable_density(monkeypatch):
+    periods = ["2026年中报", "2025年年报", "2025年三季报", "2024年年报",
+               "2024年三季报", "2023年年报", "2023年三季报"]
+    monkeypatch.setattr(
+        __import__(__name__), "MODULE",
+        {"module_key": "main_indicators", "module_name": "主要财务指标", "category": "indicators",
+         "state": "completed", "response_sha256": "b" * 64,
+         "request_params": {"unit": "万元"}, "raw_payload": {},
+         "parsed_payload": {"periods": periods, "rows": [
+             {"key": "dataType", "name": "报表类型", "values": ["合并期末"] * 7},
+             {"key": "revenue", "name": "营业总收入", "unit": "万元",
+              "values": ["1039981.78", "871649.24", "603612.55", "761294.12",
+                         "653038.73", "1697250.89", "1430673.11"]},
+         ]}},
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path="/usr/bin/google-chrome")
+        page = browser.new_page(viewport={"width": 2048, "height": 1132})
+        page.route("**/api/**", serve)
+        page.goto(os.getenv("LEASEDD_BROWSER_URL", "http://172.30.10.150:5173"))
+        page.get_by_role("button", name="附注测试项目").click()
+        page.get_by_role("button", name="财务核对", exact=True).click()
+        page.get_by_role("button", name="主要财务指标", exact=True).click()
+        first_row = page.locator(".enterprise-source-table .finance-matrix tbody tr").first
+        first_row.wait_for()
+        nav_width = page.locator(".enterprise-workspace .finance-nav").bounding_box()["width"]
+        row_height = first_row.bounding_box()["height"]
+        table = page.locator(".enterprise-source-table")
+        overflow = table.evaluate("element => element.scrollWidth > element.clientWidth")
+        assert nav_width >= 280
+        assert row_height >= 44
+        assert overflow
+        assert page.locator("body").evaluate("element => element.scrollWidth") <= 2048
+        browser.close()

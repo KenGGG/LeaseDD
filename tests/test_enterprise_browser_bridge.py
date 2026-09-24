@@ -71,6 +71,29 @@ def test_unix_bridge_forwards_source_error_and_unavailable_socket(tmp_path):
             thread.join(timeout=2)
 
 
+def test_unix_bridge_returns_source_request_error_when_page_fetch_fails(tmp_path):
+    from playwright.sync_api import Error
+    from leasedd.enterprise_browser_bridge import BrowserBrokerServer, RemoteBrowserSession
+
+    class FailedFetchBrowser(FakeBrowser):
+        def perform(self, action, **kwargs):
+            raise Error('Page.evaluate: TypeError: Failed to fetch')
+
+    socket_path = tmp_path / 'browser.sock'
+    with BrowserBrokerServer(str(socket_path), FailedFetchBrowser) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            remote = RemoteBrowserSession(str(socket_path))
+            module = EnterpriseModule(*MODULES[0][:4], 0, MODULES[0][5])
+            with pytest.raises(EnterpriseWarningError, match='source_request_unavailable'):
+                remote.perform('collect', company_code='ABC', module=module)
+            assert remote.menu('ABC')[0]['key'] == 'main_indicators'
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+
+
 def test_collector_selects_broker_only_when_explicitly_configured(monkeypatch, tmp_path):
     from leasedd.enterprise_browser_bridge import RemoteBrowserSession
 

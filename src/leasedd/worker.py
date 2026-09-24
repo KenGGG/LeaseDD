@@ -1,6 +1,6 @@
 import hashlib,json,os,time,threading
 from sqlalchemy import select, or_, and_, update, case, func
-from .db import Project,Task,Document,DocumentConversion,ExtractionRun,FinancialStatement,FinancialItem,Export,Setting,Audit,SectionRevision,uid
+from .db import Project,Task,Document,DocumentConversion,ExtractionRun,FinancialStatement,FinancialItem,Export,Setting,Audit,SectionRevision,EnterpriseImport,uid
 from .domain import snapshot_hash,facts_snapshot,synthetic_draft,validate_draft
 from .render import render
 from .contracts import SectionDraft
@@ -59,7 +59,23 @@ def record_failure(app,tid,lease,reason):
     # Lease ownership and update are one atomic database operation.
     with app.state.db.begin() as db:
         next_state='stale' if reason=='stale_task_input' else case((Task.attempts<3,'queued'),else_='failed')
-        db.execute(update(Task).where(Task.id==tid,Task.lease_token==lease,Task.state=='running').values(reason=reason,lease_until=0,state=next_state))
+        updated=db.execute(update(Task).where(Task.id==tid,Task.lease_token==lease,Task.state=='running').values(reason=reason,lease_until=0,state=next_state))
+        if not updated.rowcount:return
+        task=db.get(Task,tid)
+        if task.kind!='enterprise_import' or task.state!='failed':return
+        record=db.get(EnterpriseImport,(task.result or {}).get('import_id'))
+        if not record or record.task_id!=tid or record.state not in ('queued','running'):return
+        from .enterprise_warning import MODULES
+        status=dict(record.module_status or {})
+        for key in (task.result.get('failed_modules') or [entry[0] for entry in MODULES]):
+            if status.get(key,{}).get('state') not in ('completed','unavailable'):
+                status[key]={'state':'failed','error':reason}
+        record.module_status=status
+        partial=any(value.get('state')=='completed' for value in status.values())
+        record.state='partial' if partial else 'failed'
+        record.quality_state='passed_with_gaps' if partial else 'failed'
+        record.error=reason
+        record.completed_at=time.time()
 
 class LeaseHeartbeat:
     def __init__(self,app,tid,lease):
@@ -240,7 +256,9 @@ def run_once(app):
             db.add(Audit(project_id=pid,user_id=t.created_by,action='task_completed',details={'task_id':tid,'kind':kind},created_at=time.time()))
     except Exception as error:
         # Never log external response bodies, raw materials or credentials.
-        reason=str(error) if isinstance(error,TaskError) else ('invalid_section_response' if isinstance(error,ValueError) else 'task_execution_error')
+        from .enterprise_warning import EnterpriseWarningError
+        reason=(str(error) if isinstance(error,TaskError) else error.code if isinstance(error,EnterpriseWarningError)
+                else 'invalid_section_response' if isinstance(error,ValueError) else 'task_execution_error')
         record_failure(app,tid,lease,reason)
     finally:
         heartbeat.stop()

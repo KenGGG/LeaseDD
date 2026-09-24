@@ -18,6 +18,49 @@ SEARCH = "/finchinaAPP/v1/finchina-search/v1/multipleSearch"
 REPORTS = "/finchinaAPP/v1/finchina-finance/v1/finance/report/getThreeReports"
 
 
+def test_core_variant_fetch_retries_one_transient_network_failure_without_changing_request():
+    from playwright.sync_api import Error
+
+    class Page:
+        def __init__(self):
+            self.requests = []
+            self.waits = []
+
+        def evaluate(self, _script, params):
+            self.requests.append(params)
+            if len(self.requests) == 1:
+                raise Error('Page.evaluate: TypeError: Failed to fetch')
+            return {'returncode': 0, 'data': {'value': [['123.456']]}}
+
+        def wait_for_timeout(self, milliseconds):
+            self.waits.append(milliseconds)
+
+    page = Page()
+    request = {'path': REPORTS, 'params': {'rateType': '1'}, 'headers': {'pcuss': 'session'}}
+    assert warning_module.fetch_core_variant(page, request) == {'returncode': 0, 'data': {'value': [['123.456']]}}
+    assert page.requests == [request, request]
+    assert page.waits == [2000]
+
+
+def test_core_variant_fetch_stops_after_one_failed_retry():
+    from playwright.sync_api import Error
+
+    class Page:
+        calls = 0
+
+        def evaluate(self, _script, _params):
+            self.calls += 1
+            raise Error('Page.evaluate: TypeError: Failed to fetch')
+
+        def wait_for_timeout(self, _milliseconds):
+            pass
+
+    page = Page()
+    with pytest.raises(EnterpriseWarningError, match='source_request_unavailable'):
+        warning_module.fetch_core_variant(page, {'path': REPORTS, 'params': {}, 'headers': {}})
+    assert page.calls == 2
+
+
 def test_legacy_history_uses_source_nested_options_and_comma_separated_dates():
     from leasedd.enterprise_warning import legacy_history_request_params
     filters=[{'list':[{'list':[
