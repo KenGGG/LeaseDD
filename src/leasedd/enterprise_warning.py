@@ -20,6 +20,7 @@ NOTES_ENDPOINT = "/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data"
 NOTES_MENU_PATH = '/detail/enterprise/financialNotes'
 MAIN_BUSINESS_ENDPOINT = "/getData.action"
 LEGACY_MATRIX_MODULES = {"main_business", "restricted_assets"}
+LEGACY_RECORD_MODULES = {"receivables_top_five", "other_receivables_top_five"}
 FINANCIAL_CATEGORIES = {"indicators", "statements", "analysis", "notes"}
 MODULES = (
     ("main_indicators", "主要财务指标", "indicators", MAIN_ENDPOINT, "Fin.Statement_MainInDicators", {}),
@@ -38,14 +39,14 @@ MODULES = (
     ("major_customers", "主要销售客户", "notes", NOTES_ENDPOINT, "Fin.Notes_MainCustomers", {"child_type":"notes_MajorCustomers"}),
     ("major_suppliers", "主要供应商", "notes", NOTES_ENDPOINT, "Fin.Notes_MainSuppliers", {"child_type":"notes_MajorSuppliers"}),
     ("receivables_aging", "应收账款账龄分析", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_AccReceivableAging", "menu_parent": "应收账款"}),
-    ("receivables_top_five", "前五名应收账款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinDebtreceivalbeTopfive", "menu_parent": "应收账款"}),
+    ("receivables_top_five", "前五名应收账款", "notes", MAIN_BUSINESS_ENDPOINT, "", {"child_type": "notes_FinDebtreceivalbeTopfive", "menu_parent": "应收账款", "legacy_tab": "debt-receivable"}),
     ("receivables_impairment", "计提坏账的重大应收账款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_AccReceivableIndividualSignificantAmount", "menu_parent": "应收账款"}),
     ("prepayments_aging", "预付款项账龄分析", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinPrepaymentsAging", "menu_parent": "预付款项"}),
     ("prepayments_over_one_year", "账龄超过1年的重要预付款", "notes", NOTES_MENU_PATH, "", {"menu_only": True, "menu_parent": "预付款项"}),
     ("prepayments_top_five", "前五名预付款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinPrePaymentsTopFive", "menu_parent": "预付款项"}),
     ("other_receivables_property", "按款项性质分类", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinOthAccReceivableClassifybyProperty", "menu_parent": "其他应收款"}),
     ("other_receivables_aging", "其他应收款账龄分析", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_OthAccReceivableAging", "menu_parent": "其他应收款"}),
-    ("other_receivables_top_five", "前五名其他应收款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinOthaccountsreceivableTopfive", "menu_parent": "其他应收款"}),
+    ("other_receivables_top_five", "前五名其他应收款", "notes", MAIN_BUSINESS_ENDPOINT, "", {"child_type": "notes_FinOthaccountsreceivableTopfive", "menu_parent": "其他应收款", "legacy_tab": "other-debt-receivable"}),
     ("other_receivables_impairment", "计提坏账的重大其他应收款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_OthAccReceivableIndividualSignificantAmount", "menu_parent": "其他应收款"}),
     ("payables_aging", "应付账款账龄分析", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinPayablesAging", "menu_parent": "应付账款"}),
     ("payables_over_one_year", "账龄超过1年的重要应付账款", "notes", NOTES_ENDPOINT, "", {"child_type": "notes_FinImportantPayables", "menu_parent": "应付账款"}),
@@ -257,6 +258,29 @@ def parse_notes(payload: dict[str, Any]) -> dict[str, Any]:
             "metadata": {key: value for key, value in data.items() if key not in ("head", "value")}}
 
 
+def parse_precise_notes(payload: dict[str, Any]) -> dict[str, Any]:
+    data = _data(payload, ("head", "value"))
+    head, values = data["head"], _not_empty(data["value"])
+    if (not isinstance(head, list) or not isinstance(values, list) or not head
+            or any(not isinstance(row, list) or len(row) != len(head) for row in values)):
+        raise EnterpriseWarningError("structure_changed")
+    markers = [index for index, label in enumerate(head) if index and isinstance(label, str)
+               and re.fullmatch(r"\d{4}年(?:年报|中报)", label)]
+    if not markers or markers[0] != 1:
+        raise EnterpriseWarningError("structure_changed")
+    grouped_heads, grouped_rows, periods = [], [], []
+    for position, start in enumerate(markers):
+        end = markers[position + 1] if position + 1 < len(markers) else len(head)
+        if end <= start + 1:
+            raise EnterpriseWarningError("structure_changed")
+        periods.append(head[start])
+        grouped_heads.append([head[0], *head[start + 1:end]])
+        grouped_rows.append([[row[0], *row[start + 1:end]] for row in values])
+    return {"head": grouped_heads, "rows": grouped_rows,
+            "metadata": {**{key: value for key, value in data.items() if key not in ("head", "value")},
+                         "report": periods, "precise_record": True}}
+
+
 def parse_main_business(payload: dict[str, Any]) -> dict[str, Any]:
     return _parse_matrix(payload, units=True)
 
@@ -275,6 +299,8 @@ def _hash(payload: dict[str, Any]) -> str:
 def _parser(module: EnterpriseModule) -> Callable[[dict[str, Any]], dict[str, Any]]:
     if module.key in LEGACY_MATRIX_MODULES:
         return parse_main_business
+    if module.key in LEGACY_RECORD_MODULES:
+        return parse_precise_notes
     if module.key == "long_term_receivables":
         return parse_empty_notes
     if module.endpoint_path.endswith("getMainIndicators"):
@@ -360,10 +386,25 @@ class QyjCollector:
                 raw={'responses':records}
                 params={**module.request_params,**variants[default][2],'unit':'万元'}
                 return CollectedModule(replace(module,request_params=params),raw,{**views[default]['parsed'],'variants':views},_hash(raw))
-            if module.key in LEGACY_MATRIX_MODULES:
-                candidates = [self._parts(item) for item in responses if module.endpoint_path in item[0]
-                              and isinstance(item[1].get("data"), dict)
-                              and all(key in item[1]["data"] for key in ("head", "key", "value"))]
+            disabled_menu = next((self._parts(item) for item in responses
+                                  if module.key in LEGACY_RECORD_MODULES
+                                  and isinstance(item[1], dict) and item[1].get('source') == 'dom_menu'
+                                  and item[1].get('menu', {}).get('disabled') is True), None)
+            if disabled_menu:
+                url, raw, captured_params = disabled_menu
+            elif module.key in LEGACY_MATRIX_MODULES | LEGACY_RECORD_MODULES:
+                candidates = []
+                for item in responses:
+                    candidate_url, candidate_raw, candidate_params = self._parts(item)
+                    if module.endpoint_path not in candidate_url or not isinstance(candidate_raw.get('data'), dict):
+                        continue
+                    fields = ('head', 'key', 'value') if module.key in LEGACY_MATRIX_MODULES else ('head', 'value')
+                    if not all(key in candidate_raw['data'] for key in fields):
+                        continue
+                    query = {key: values[-1] for key, values in parse_qs(urlparse(candidate_url).query).items()}
+                    if module.key in LEGACY_RECORD_MODULES and {**query, **candidate_params}.get('tabName') != module.request_params.get('legacy_tab'):
+                        continue
+                    candidates.append((candidate_url, candidate_raw, candidate_params))
                 if not candidates:
                     raise EnterpriseWarningError("structure_changed")
                 url, raw, captured_params = candidates[-1]
@@ -380,7 +421,7 @@ class QyjCollector:
             no_data = (raw.get('returncode') == 0
                     and isinstance(raw.get('data'), dict) and 'leftTreeShow' in raw['data']
                     and raw['data'].get('value') in (None, []))
-            dom_only = (module.request_params.get('menu_only') is True and set(raw) == {'source','menu'}
+            dom_only = (module.category == 'notes' and set(raw) == {'source','menu'}
                         and raw.get('source') == 'dom_menu' and raw.get('menu') == menu)
             if (module.category == 'notes' and (no_data or dom_only)
                     and menu.get('disabled') is True and menu.get('name') == module.name
@@ -583,7 +624,7 @@ class _PlaywrightSession:
                     return
                 if module.endpoint_path==ANALYSIS_ENDPOINT and module.request_params.get('pageCode'):
                     return
-                if module.category == "notes" and module.request_params.get("child_type"):
+                if module.category == "notes" and module.request_params.get("child_type") and module.key not in LEGACY_RECORD_MODULES:
                     headers = self._wait_finance_headers()
                     raw = self.page.evaluate(
                         "async ([code, child, headers]) => fetch(`/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data?child_type=${encodeURIComponent(child)}&code=${encodeURIComponent(code)}&type=company`, {headers, credentials:'include'}).then(r => r.json())",
@@ -598,6 +639,12 @@ class _PlaywrightSession:
                 if module.category in ("analysis", "notes"):
                     self.page.get_by_text("财务分析" if module.category == "analysis" else "财务附注", exact=True).click(force=True)
                     self.page.wait_for_timeout(500)
+                if module.key in LEGACY_RECORD_MODULES:
+                    evidence = self._note_menu_evidence(module, kwargs['company_code'])
+                    if evidence['disabled']:
+                        direct_responses.append((self.page.url, {'source':'dom_menu','menu':evidence},
+                                                 {'code':kwargs['company_code'],'source_menu':evidence}))
+                        return
                 item = self._menu_item(module.name)
                 if module.endpoint_path in {REPORT_ENDPOINT,ANALYSIS_ENDPOINT}:
                     with self.page.expect_response(lambda response: module.endpoint_path in response.url,timeout=20000):
@@ -613,10 +660,11 @@ class _PlaywrightSession:
             responses=self._capture(run, wait_ms=5000 if module.key == "main_business" else 2500)
             if direct_responses:
                 return direct_responses
-            if module.key in LEGACY_MATRIX_MODULES:
+            if module.key in LEGACY_MATRIX_MODULES | LEGACY_RECORD_MODULES:
                 operation = '1227' if module.key == 'main_business' else '1311'
                 matches = [entry for entry in responses if MAIN_BUSINESS_ENDPOINT in entry[0]
-                           and entry[2].get('code') == kwargs['company_code'] and str(entry[2].get('_t')) == operation]
+                           and entry[2].get('code') == kwargs['company_code'] and str(entry[2].get('_t')) == operation
+                           and (module.key not in LEGACY_RECORD_MODULES or entry[2].get('tabName') == module.request_params.get('legacy_tab'))]
                 filters = [entry[1].get('data') for entry in responses if MAIN_BUSINESS_ENDPOINT in entry[0]
                            and entry[2].get('code') == kwargs['company_code'] and str(entry[2].get('_t')) == '1072'
                            and isinstance(entry[1].get('data'), list)]
@@ -635,6 +683,10 @@ class _PlaywrightSession:
                 if module.key == 'restricted_assets':
                     raw = fetch_legacy(params)
                     parse_main_business(raw)
+                    return [(self.base+MAIN_BUSINESS_ENDPOINT, raw, params)]
+                if module.key in LEGACY_RECORD_MODULES:
+                    raw = fetch_legacy(params)
+                    parse_precise_notes(raw)
                     return [(self.base+MAIN_BUSINESS_ENDPOINT, raw, params)]
                 options = legacy_filter_options(filters[-1])
                 currencies = [str(item['value']) for item in options.get('displayCurrency', [])]

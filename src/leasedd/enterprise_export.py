@@ -175,12 +175,31 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
     output=[]
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
-        for index,head in enumerate(heads):
+        precise_record=metadata.get('precise_record') is True
+        source_unit=(getattr(module,'request_params',{}) or {}).get('unit','')
+        indices=list(range(len(heads)))
+        if getattr(module,'module_key','') in {'receivables_top_five','other_receivables_top_five'} and reports:
+            periods=[_period(value) for value in reports]
+            latest=max(map(_order,periods),default=0)
+            latest_quarter=(latest//10)*4+latest%10
+            choices=set(report.split(','))
+            indices=[index for index in indices if index<len(periods) and
+                     (not start or periods[index][:4]>=start) and (not end or periods[index][:4]<=end) and
+                     (not window_years or (_order(periods[index])//10)*4+_order(periods[index])%10>latest_quarter-window_years*4) and
+                     ('all' in choices or _kind(periods[index]) in choices or 'latest' in choices and _order(periods[index])==latest)]
+            indices.sort(key=lambda index:_order(periods[index]),reverse=descending)
+        for index in indices:
+            head=heads[index]
             columns=rows[index] if index<len(rows) else []
             header=[head[0],*[column[0] for column in columns]]
             if header!=previous_header:output.append(header);previous_header=header
             output.append([_period(reports[index]) if index<len(reports) else str(index+1)])
-            output.extend([[name,*[column[i+1] if i+1<len(column) else None for column in columns]] for i,name in enumerate(head[1:])])
+            output.extend([[name,*[
+                _amount(column[i+1] if i+1<len(column) else None,
+                        '%' if re.search(r'[%％]',str(column[0])) else source_unit,unit,decimals)
+                if precise_record else column[i+1] if i+1<len(column) else None
+                for column in columns
+            ]] for i,name in enumerate(head[1:])])
     else:
         if heads and rows and all(isinstance(row,list) and re.fullmatch(r'\d{8}',str(row[0])) for row in rows):
             periods=[_period(row[0]) for row in rows]

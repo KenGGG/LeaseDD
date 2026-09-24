@@ -1,4 +1,5 @@
 import pytest
+from leasedd import enterprise_warning as warning_module
 
 from leasedd.enterprise_warning import (
     EnterpriseModule,
@@ -265,6 +266,43 @@ def test_restricted_assets_uses_legacy_matrix_response():
     assert collected.parsed["periods"] == ["2025-12-31"]
     assert collected.parsed["rows"][0]["values"] == ["100"]
     assert collected.module.request_params["unit"] == "万元"
+
+
+def test_precise_note_parser_keeps_full_amount_and_source_period_groups():
+    raw={"data":{"head":["单位名称","2025年年报","第一名","合计","2025年中报","第一名"],
+                 "value":[["期末余额","","68137.782993","68137.782993","","59000.123456"],
+                          ["占总额比例(%)","","28.14","28.14","","25.00"]],
+                 "headExport":["单位名称","2025年年报","第一名","合计","2025年中报","第一名"]}}
+    parsed=warning_module.parse_precise_notes(raw)
+    assert parsed['metadata']['report']==['2025年年报','2025年中报']
+    assert parsed['head']==[['单位名称','第一名','合计'],['单位名称','第一名']]
+    assert parsed['rows'][0][0]==['期末余额','68137.782993','68137.782993']
+    assert parsed['rows'][1][1]==['占总额比例(%)','25.00']
+    assert raw['data']['value'][0][2]=='68137.782993'
+
+
+def test_precise_note_collector_selects_only_matching_tab_and_keeps_unit():
+    module=EnterpriseModule('receivables_top_five','前五名应收账款','notes','/getData.action',16,
+                            {'legacy_tab':'debt-receivable','menu_parent':'应收账款'})
+    wrong={'data':{'head':['单位名称','2025年年报','第一名'],'value':[['期末余额','','999']]}}
+    right={'data':{'head':['单位名称','2025年年报','第一名'],'value':[['期末余额','','68137.782993']]}}
+    session=FakeSession([('https://x/getData.action?tabName=debt-receivable&unitCode=4',right),
+                         ('https://x/getData.action?tabName=other-debt-receivable&unitCode=4',wrong)])
+    collected=QyjCollector(session_factory=lambda:session).collect_module('company',module)
+    assert collected.parsed['rows'][0][0][1]=='68137.782993'
+    assert collected.module.request_params['unit']=='万元'
+    assert collected.raw==right
+
+
+def test_precise_note_keeps_original_site_disabled_menu_evidence():
+    module=EnterpriseModule('receivables_top_five','前五名应收账款','notes','/getData.action',16,
+                            {'legacy_tab':'debt-receivable','menu_parent':'应收账款'})
+    menu={'name':'前五名应收账款','disabled':True,'company_code':'company','source_url':'https://x/detail/enterprise/financialNotes'}
+    raw={'source':'dom_menu','menu':menu}
+    session=FakeSession([('https://x/detail/enterprise/financialNotes',raw,{'source_menu':menu})])
+    collected=QyjCollector(session_factory=lambda:session).collect_module('company',module)
+    assert collected.parsed['metadata']['unavailable'] is True
+    assert collected.raw==raw
 
 
 def test_long_term_receivables_preserves_confirmed_empty_response():

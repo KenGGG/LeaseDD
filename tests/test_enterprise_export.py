@@ -151,6 +151,36 @@ def test_business_export_filters_standalone_types_and_uses_request_unit_only_for
     book.close()
 
 
+def test_receivables_record_export_filters_periods_like_screen_without_changing_source_values():
+    module=SimpleNamespace(module_key='receivables_top_five',module_name='前五名应收账款',category='notes',request_params={},raw_payload={},parsed_payload={
+        'head':[['单位名称','第一名']]*4,
+        'rows':[[['账面余额','6.81亿']],[['账面余额','5.92亿']],[['账面余额','4.00亿']],[['账面余额','3.00亿']]],
+        'metadata':{'report':['20251231','20250630','20231231','20211231']}})
+    original=str(module.parsed_payload)
+    book,values=rows(export_enterprise_workbook(module,report='annual',window_years=3,descending=False))
+    assert [row[0] for row in values if row[0] and '年' in str(row[0])]==['2023年年报','2025年年报']
+    assert values[-1]==('第一名','6.81亿')
+    assert str(module.parsed_payload)==original
+    book.close()
+    book,values=rows(export_enterprise_workbook(module,report='half',start='2025'))
+    assert [row[0] for row in values if row[0] and '年' in str(row[0])]==['2025年中报']
+    assert values[-1]==('第一名','5.92亿')
+    book.close()
+
+
+def test_precise_receivables_excel_uses_saved_full_value_and_declared_source_unit():
+    module=SimpleNamespace(module_key='receivables_top_five',module_name='前五名应收账款',category='notes',
+                           request_params={'unit':'万元'},raw_payload={},parsed_payload={
+        'head':[['单位名称','第一名']],
+        'rows':[[['期末余额','68137.782993'],['占总额比例(%)','28.14']]],
+        'metadata':{'report':['2025年年报'],'precise_record':True}})
+    book,values=rows(export_enterprise_workbook(module,unit='元',decimals=2))
+    assert values[2]==('第一名',681377829.93,28.14)
+    assert book.active['B3'].number_format=='#,##0.00'
+    assert module.parsed_payload['rows'][0][0][1]=='68137.782993'
+    book.close()
+
+
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
     module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
         parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[

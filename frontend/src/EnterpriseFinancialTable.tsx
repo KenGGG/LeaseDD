@@ -1,8 +1,8 @@
 import React,{useEffect,useId,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {enterpriseCellUnit,enterpriseColumnKind,enterpriseCurrencyVariants,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,enterpriseReportOptions} from './enterprise-financial-view';
+import {enterpriseCellUnit,enterpriseColumnKind,enterpriseCurrencyVariants,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,enterpriseReportOptions,enterpriseNotePrecisionState} from './enterprise-financial-view';
 import type {EnterpriseModuleData} from './api';
-import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from './enterprise-financial-view';
+import {buildEnterpriseModuleView,filterEnterpriseMatrix,filterEnterpriseRecords,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,enterpriseDisplayRecordValue,selectEnterpriseModule,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from './enterprise-financial-view';
 import {unitPowers} from './financial-view';
 import type {EnterpriseMatrixRow} from './enterprise-financial-view';
 import EnterpriseIndicatorTrend from './EnterpriseIndicatorTrend';
@@ -59,14 +59,15 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  const [trendKey,setTrendKey]=useState('');
  if(!module)return <p className="finance-empty">{activeName||'当前栏目'}尚未导入。</p>;
  const original=buildEnterpriseModuleView(module);
- const periodControls=enterpriseHasPeriodControls(original);
- const view=original.kind==='matrix'?filterEnterpriseMatrix(original,{report,start,end,descending,hideEmpty,scopes,dataKinds,windowYears}):original;
+ const periodControls=enterpriseHasPeriodControls(original,module);
+ const view=original.kind==='matrix'?filterEnterpriseMatrix(original,{report,start,end,descending,hideEmpty,scopes,dataKinds,windowYears}):original.kind==='records'&&periodControls?filterEnterpriseRecords(original,{report,start,end,descending,hideEmpty,windowYears}):original;
  const visibleRows=view.kind==='matrix'?collapseEnterpriseRows(view.rows,collapsedRows):[];
- const years=original.kind==='matrix'?[...new Set(original.periods.map(p=>p.slice(0,4)))].sort().reverse():[];
+ const years=original.kind==='matrix'?[...new Set(original.periods.map(p=>p.slice(0,4)))].sort().reverse():original.kind==='records'?[...new Set(original.tables.map(table=>table.title.slice(0,4)).filter(value=>/^\d{4}$/.test(value)))].sort().reverse():[];
  const text=(value:unknown)=>value==null?'':String(value);
  const metadata=(key:string)=>original.kind==='matrix'?[...new Set(original.rows.find(row=>row.key===key)?.values.map(text).filter(Boolean)||[])]:[];
  const main=module.category==='statements'||module.category==='indicators';
  const toolbar=enterpriseToolbarOptions(module);
+ const precisionState=enterpriseNotePrecisionState(module),preciseRecord=precisionState==='precise';
  const columnKinds=(metadata('dataType').length?metadata('dataType'):metadata('reportRange')).map(enterpriseColumnKind);
  const scopeOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.scope).filter(Boolean))].map(value=>[value,value])];
  const kindOptions=[['all','全部'],...[...new Set(columnKinds.map(item=>item.kind))].map(value=>[value,value])];
@@ -85,18 +86,19 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  function toggleRow(key:string){setCollapsedRows(previous=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next})}
  return <div className="enterprise-financial-view enterprise-reference">
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
+  {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；请由管理员重新导入。</p>}
   {!filtersHidden&&periodControls&&<div className="enterprise-reference-filters">
    <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)}/>
-   {toolbar.yearsAndUnit&&<>
+   {(toolbar.yearsAndUnit||original.kind==='records')&&<>
     <div className="reference-years"><span>年度</span>{[3,5,10].map(n=><button key={n} aria-pressed={windowYears===n} onClick={()=>{setWindowYears(n);setStart('');setEnd('')}}>{n}Y</button>)}<select aria-label="起始年度" value={start} onChange={e=>{setWindowYears(0);setStart(e.target.value)}}><option value="">起始</option>{years.map(y=><option key={y}>{y}</option>)}</select><span>至</span><select aria-label="结束年度" value={end} onChange={e=>{setWindowYears(0);setEnd(e.target.value)}}><option value="">结束</option>{years.map(y=><option key={y}>{y}</option>)}</select><button onClick={()=>{setWindowYears(0);setStart('');setEnd('')}}>全部</button></div>
     {(main||module.category==='analysis')&&scopeOptions.length>1&&<ReportSelect label={main?'报表类型':'合并类型'} value={scopes} onChange={setScopes} options={scopeOptions}/>}
     {toolbar.dataKinds&&kindOptions.length>1&&<ReportSelect label="数据类型" value={dataKinds} onChange={setDataKinds} options={kindOptions}/>}
-    <label>单位<select aria-label="显示单位" value={unit} onChange={e=>setUnit(e.target.value)}>{Object.keys(unitPowers).map(v=><option key={v}>{v}</option>)}</select></label>
-    <div className="reference-years"><button aria-label="减少小数位" disabled={decimals===0} onClick={()=>setDecimals(decimals-1)}>.00 ←</button><button aria-label="增加小数位" disabled={decimals===6} onClick={()=>setDecimals(decimals+1)}>→ .00</button></div>
+    {(toolbar.yearsAndUnit||preciseRecord)&&<><label>单位<select aria-label="显示单位" value={unit} onChange={e=>setUnit(e.target.value)}>{Object.keys(unitPowers).map(v=><option key={v}>{v}</option>)}</select></label>
+    <div className="reference-years"><button aria-label="减少小数位" disabled={decimals===0} onClick={()=>setDecimals(decimals-1)}>.00 ←</button><button aria-label="增加小数位" disabled={decimals===6} onClick={()=>setDecimals(decimals+1)}>→ .00</button></div></>}
     {toolbar.currency&&<><label>币种<select aria-label="币种" value={currency} disabled={!variants.length} onChange={e=>{setCurrency(e.target.value);setRate('1')}}>{(currencyOptions.length?currencyOptions:['O']).map(v=><option key={v} value={v}>{currencyNames[v]||v}</option>)}</select></label><label>汇率<select aria-label="汇率" value={rate} disabled={!variants.length} onChange={e=>setRate(e.target.value)}>{(rateOptions.length?rateOptions:['1']).map(v=><option key={v} value={v}>{v==='1'?'期末汇率':v==='2'?'最新汇率':v}</option>)}</select></label></>}
    </>}
   </div>}
-  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button><label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label></>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
+  <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button>{original.kind==='matrix'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
   {exportError&&<p role="alert" className="finance-pending">{exportError}</p>}
   {view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={module.module_name+'原始数据表'}>
    <table className="finance-matrix"><thead><tr><th>{module.category==='notes'?'项目名称':module.category==='analysis'?'指标名称':'报告期'}</th>{view.periods.map((period,index)=>{const source=enterpriseSourceLink(sources[index]);return <th key={period+index}>{period}{source&&<a className="enterprise-pdf-link" href={source.href} target="_blank" rel="noopener noreferrer" aria-label={'查看'+period+'原始报告'}>PDF</a>}</th>})}</tr></thead><tbody>
@@ -116,7 +118,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
    {groupEnterpriseRecordTables(view.tables).map((group,index)=><table key={group[0].title+index} className="finance-matrix"><thead><tr>{group[0].headers.map((header,i)=><th key={i}>{header}</th>)}</tr></thead><tbody>
     {group.map((table,section)=><React.Fragment key={table.title+section}>
      {/^\d{4}年/.test(table.title)&&<tr className="enterprise-section-row"><th colSpan={table.headers.length}>{table.title}</th></tr>}
-     {table.rows.map((row,i)=><tr key={i} className={row[0]==='合计'?'finance-total':''}>{row.map((value,j)=>j===0?<th key={j}>{text(value)}</th>:<td key={j}>{text(value)||'-'}</td>)}</tr>)}
+     {table.rows.map((row,i)=><tr key={i} className={row[0]==='合计'?'finance-total':''}>{row.map((value,j)=>j===0?<th key={j}>{text(value)}</th>:<td key={j} title={preciseRecord&&value!=null?'原值：'+text(value)+' '+(/[％%]/.test(table.headers[j])?'%':String(module.request_params?.unit||'')):undefined}>{enterpriseDisplayRecordValue(value,table.headers[j]||'',String(module.request_params?.unit||''),unit,decimals,preciseRecord)||'-'}</td>)}</tr>)}
     </React.Fragment>)}
    </tbody></table>)}
    {!view.tables.length&&<p className="finance-empty">当前筛选无已导入期间。</p>}

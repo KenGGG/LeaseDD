@@ -4,6 +4,7 @@ import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOpti
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
 import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
+import * as viewHelpers from '../src/enterprise-financial-view.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
@@ -125,6 +126,35 @@ test('verified financial-note report menus have only the source three choices',(
   assert.deepEqual(enterpriseReportOptions({module_key,category:'notes'}).map(([key])=>key),['all','latest','annual','half']);
  }
  assert.deepEqual(enterpriseReportOptions({module_key:'balance_sheet',category:'statements'}).map(([key])=>key),['all','latest','annual','q3','half','q1']);
+});
+test('source-filtered receivables records apply report, rolling year and sort without changing values',()=>{
+ const view={kind:'records',tables:[
+  {title:'2025年年报',headers:['单位名称','第一名'],rows:[['账面余额','6.81亿']]},
+  {title:'2025年中报',headers:['单位名称','第一名'],rows:[['账面余额','5.92亿']]},
+  {title:'2023年年报',headers:['单位名称','第一名'],rows:[['账面余额','4.00亿']]},
+  {title:'2021年年报',headers:['单位名称','第一名'],rows:[['账面余额','3.00亿']]},
+ ]};
+ const module={module_key:'receivables_top_five',category:'notes'};
+ assert.equal(enterpriseHasPeriodControls(view,module),true);
+ assert.equal(enterpriseHasPeriodControls(view,{module_key:'major_customers',category:'notes'}),false);
+ assert.deepEqual(viewHelpers.filterEnterpriseRecords(view,{report:'annual',start:'',end:'',descending:true,hideEmpty:false,windowYears:3}).tables.map(table=>table.title),['2025年年报','2023年年报']);
+ const selected=viewHelpers.filterEnterpriseRecords(view,{report:'latest,annual',start:'',end:'',descending:false,hideEmpty:false,windowYears:0});
+ assert.deepEqual(selected.tables.map(table=>table.title),['2021年年报','2023年年报','2025年年报']);
+ assert.equal(selected.tables[2].rows[0][1],'6.81亿');
+ assert.deepEqual(viewHelpers.filterEnterpriseRecords(view,{report:'half',start:'2025',end:'',descending:true,hideEmpty:false}).tables.map(table=>table.title),['2025年中报']);
+});
+test('precise receivables note renders source amount and percentage at selected unit without changing raw value',()=>{
+ const raw='68137.782993';
+ assert.equal(viewHelpers.enterpriseDisplayRecordValue(raw,'期末余额','万元','万元',2,true),'68,137.78');
+ assert.equal(viewHelpers.enterpriseDisplayRecordValue(raw,'期末余额','万元','元',2,true),'681,377,829.93');
+ assert.equal(viewHelpers.enterpriseDisplayRecordValue('28.14','占总额比例(%)','万元','元',2,true),'28.14');
+ assert.equal(viewHelpers.enterpriseDisplayRecordValue('6.81亿','期末余额','万元','元',2,false),'6.81亿');
+ assert.equal(raw,'68137.782993');
+});
+test('old compressed receivables responses are flagged until a precise source batch replaces them',()=>{
+ assert.equal(viewHelpers.enterpriseNotePrecisionState({module_key:'receivables_top_five',parsed_payload:{metadata:{report:['20251231']}}}),'legacy_summary');
+ assert.equal(viewHelpers.enterpriseNotePrecisionState({module_key:'other_receivables_top_five',parsed_payload:{metadata:{precise_record:true}}}),'precise');
+ assert.equal(viewHelpers.enterpriseNotePrecisionState({module_key:'major_customers',parsed_payload:{metadata:{}}}),'not_applicable');
 });
 test('business toolbar separates standalone data kinds and never scales ratios or exchange rates',()=>{
  const module={module_key:'main_business',category:'notes',request_params:{unitCode:'4'},parsed_payload:{periods:['2025年年报','2025年年报','2025年年报'],rows:[

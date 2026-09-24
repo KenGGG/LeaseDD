@@ -7,9 +7,16 @@ export type EnterpriseModuleView=
  | {kind:'matrix';periods:string[];rows:EnterpriseMatrixRow[]}
  | {kind:'records';tables:EnterpriseRecordTable[]}
  | {kind:'empty';confirmed:boolean;unavailable?:boolean};
-// The verified nested customer/supplier record pages expose only Excel export;
-// their year headings are data groups, not a period toolbar.
-export function enterpriseHasPeriodControls(view:EnterpriseModuleView){return view.kind==='matrix'}
+const filteredRecordNotes=new Set(['receivables_top_five','other_receivables_top_five']);
+export function enterpriseNotePrecisionState(module:Pick<EnterpriseModuleData,'module_key'|'parsed_payload'>){
+ if(!filteredRecordNotes.has(module.module_key))return 'not_applicable';
+ return object(object(module.parsed_payload).metadata).precise_record===true?'precise':'legacy_summary';
+}
+// Customer/supplier record pages expose only Excel; the two receivables pages
+// expose source report and year controls over their saved report groups.
+export function enterpriseHasPeriodControls(view:EnterpriseModuleView,module?:Pick<EnterpriseModuleData,'module_key'>){
+ return view.kind==='matrix'||view.kind==='records'&&filteredRecordNotes.has(module?.module_key||'')&&view.tables.some(table=>/^\d{4}年(?:年报|中报)$/.test(table.title));
+}
 export function groupEnterpriseRecordTables(tables:EnterpriseRecordTable[]){
  const groups:EnterpriseRecordTable[][]=[];
  for(const table of tables){
@@ -38,7 +45,7 @@ export function enterpriseToolbarOptions(module:Pick<EnterpriseModuleData,'modul
   dataKinds:module.category==='statements'||business,halfAnnualOnly:business||restricted,
   defaultScope:module.category==='indicators'||module.category==='statements'||module.category==='analysis'&&module.module_key!=='per_share'?'合并期末':'all',
   defaultKind:module.category==='statements'||business?'原始报表':'all',
-  defaultYears:module.category==='statements'||module.category==='indicators'?3:module.category==='analysis'||business||restricted?5:0};
+  defaultYears:module.category==='statements'||module.category==='indicators'?3:module.category==='analysis'||business||restricted||filteredRecordNotes.has(module.module_key)?5:0};
 }
 const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['q3','三季报'],['half','中报'],['q1','一季报']];
 const verifiedNoteReportMenus=new Set(['audit_report','receivables_aging','prepayments_aging','other_receivables_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
@@ -187,6 +194,18 @@ function periodKind(period:string){
 function periodOrder(period:string){const ranks:Record<string,number>={annual:4,half:2,q3:3,q1:1};return Number(period.slice(0,4))*10+(ranks[periodKind(period)]??0)}
 function periodQuarter(period:string){const order=periodOrder(period);return Math.floor(order/10)*4+order%10}
 export const enterpriseIsBlank=(value:unknown)=>value==null||['','-','—','--'].includes(String(value).trim());
+export function filterEnterpriseRecords(view:Extract<EnterpriseModuleView,{kind:'records'}>,filter:EnterpriseFilter){
+ const latest=Math.max(0,...view.tables.map(table=>periodOrder(table.title)));
+ const latestQuarter=Math.floor(latest/10)*4+latest%10;
+ const reports=filter.report.split(',');
+ const tables=view.tables.filter(table=>{
+  const period=table.title,order=periodOrder(period),year=period.slice(0,4);
+  return (!filter.start||year>=filter.start)&&(!filter.end||year<=filter.end)&&
+   (!filter.windowYears||Math.floor(order/10)*4+order%10>latestQuarter-filter.windowYears*4)&&
+   (reports.includes('all')||reports.includes(periodKind(period))||reports.includes('latest')&&order===latest);
+ }).sort((left,right)=>(periodOrder(right.title)-periodOrder(left.title))*(filter.descending?1:-1));
+ return {...view,tables};
+}
 export function filterEnterpriseMatrix(view:Extract<EnterpriseModuleView,{kind:'matrix'}>,filter:EnterpriseFilter){
  const reports=filter.report.split(','),latest=Math.max(...view.periods.map(periodOrder));
  const latestQuarter=Math.max(...view.periods.map(periodQuarter));
@@ -220,6 +239,12 @@ export function enterpriseDisplayValue(value:unknown,sourceUnit:string,targetUni
  const position=whole.length+power;
  const base=(negative?'-':'')+digits.slice(0,position)+(position<digits.length?'.'+digits.slice(position):'');
  return formatAmount(base,sourceUnit in unitPowers?targetUnit:'元',decimals);
+}
+
+export function enterpriseDisplayRecordValue(value:unknown,header:string,sourceUnit:string,targetUnit:string,decimals:number,precise:boolean){
+ if(value===null||value===undefined||value==='')return '';
+ if(!precise)return String(value);
+ return enterpriseDisplayValue(value,/[%％]/.test(header)?'%':sourceUnit,targetUnit,decimals);
 }
 
 export function enterpriseCellUnit(rows:EnterpriseMatrixRow[],row:EnterpriseMatrixRow,column:number){
