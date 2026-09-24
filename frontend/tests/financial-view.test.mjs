@@ -447,6 +447,16 @@ test('enterprise flat notes transpose periods into columns without changing form
  assert.equal(view.rows[2].section,false);
 });
 
+test('audit report opens only verified PDF links for the matching disclosed date',()=>{
+ const url='https://hwfile.finchina.com/MRGG/CNSESZ_SJBG/2026/report.pdf';
+ const module={module_key:'audit_report',category:'notes',parsed_payload:{head:['报告期','审计报告正文'],
+  rows:[['20251231','查看'],['20241231','查看']],metadata:{audit_pdf_links:{'20251231':url}}}};
+ const view=buildEnterpriseModuleView(module);
+ assert.deepEqual(view.rows[0].values,['查看__'+url,'查看']);
+ assert.deepEqual(module.parsed_payload.rows[0],['20251231','查看']);
+ assert.equal(enterpriseSourceLink(view.rows[0].values[0]).href,url);
+});
+
 test('enterprise subtotal bold and expandable amount rows are not orange section headings',()=>{
  const view=buildEnterpriseModuleView({module_key:'solvency',category:'analysis',parsed_payload:{periods:['2025年年报'],rows:[
   {name:'合计',key:'total',bold:true,values:['30']},
