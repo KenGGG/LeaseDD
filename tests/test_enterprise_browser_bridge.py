@@ -94,6 +94,29 @@ def test_unix_bridge_returns_source_request_error_when_page_fetch_fails(tmp_path
             thread.join(timeout=2)
 
 
+def test_unix_bridge_reports_playwright_failure_stage_without_leaking_url(tmp_path):
+    from playwright.sync_api import Error
+    from leasedd.enterprise_browser_bridge import BrowserBrokerServer, RemoteBrowserSession
+
+    class FailedMenuBrowser(FakeBrowser):
+        def menu(self, company_code):
+            raise Error('Page.goto: Timeout 30000ms exceeded.\nCall log: secret-token-in-url')
+
+    socket_path = tmp_path / 'browser.sock'
+    with BrowserBrokerServer(str(socket_path), FailedMenuBrowser) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with pytest.raises(EnterpriseWarningError) as caught:
+                RemoteBrowserSession(str(socket_path)).menu('ABC')
+            assert caught.value.code == 'browser_unavailable'
+            assert caught.value.details == {'stage': 'Page.goto', 'timeout': True}
+            assert 'secret-token-in-url' not in str(caught.value.details)
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+
+
 def test_collector_selects_broker_only_when_explicitly_configured(monkeypatch, tmp_path):
     from leasedd.enterprise_browser_bridge import RemoteBrowserSession
 

@@ -102,7 +102,12 @@ class _Handler(socketserver.BaseRequestHandler):
             answer = {'ok': False, 'code': error.code, 'details': error.details}
         except PlaywrightError as error:
             code = 'source_request_unavailable' if 'Failed to fetch' in str(error) else 'browser_unavailable'
-            answer = {'ok': False, 'code': code}
+            first_line = str(error).splitlines()[0]
+            stage = re.match(r'([A-Za-z][A-Za-z0-9]*\.[A-Za-z][A-Za-z0-9]*):', first_line)
+            answer = {'ok': False, 'code': code, 'details': {
+                'stage': stage.group(1) if stage else 'Playwright',
+                'timeout': 'Timeout' in first_line,
+            }}
         except (OSError, ValueError, json.JSONDecodeError, struct.error):
             answer = {'ok': False, 'code': 'structure_changed'}
         try:

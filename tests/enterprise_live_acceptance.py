@@ -72,7 +72,8 @@ def verify_company(app, name):
             company_code = next(iter(codes)) if len(codes) == 1 else None
         if company_code != binding.company_code:
             raise RuntimeError(f"source_company_mismatch:{name}")
-        return acceptance_result(db, existing, binding, record, round((record.completed_at or 0) - (record.started_at or 0), 3))
+        started_at = task.created_at if task else record.started_at
+        return acceptance_result(db, existing, binding, record, round((record.completed_at or 0) - (started_at or 0), 3))
 
 
 def main():

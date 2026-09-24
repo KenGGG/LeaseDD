@@ -78,6 +78,18 @@ def test_existing_current_batch_is_verified_without_reimporting(tmp_path):
         assert db.get(EnterpriseImport, record_id).state == "completed"
 
 
+def test_acceptance_elapsed_uses_latest_retry_task_not_reused_batch_start(tmp_path):
+    factory, _, _, _, record_id = seeded(tmp_path)
+    with factory.begin() as db:
+        record = db.get(EnterpriseImport, record_id)
+        record.started_at = 10
+        record.completed_at = 45
+        db.get(Task, record.task_id).created_at = 30
+    app = SimpleNamespace(state=SimpleNamespace(db=factory))
+    result = verify_company(app, "德方纳米")
+    assert result["enterprise_elapsed_seconds"] == 15
+
+
 def test_flat_note_date_rows_count_as_report_groups(tmp_path):
     factory, _, project_id, binding_id, record_id = seeded(tmp_path)
     with factory.begin() as db:
