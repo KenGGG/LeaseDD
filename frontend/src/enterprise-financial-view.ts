@@ -150,7 +150,7 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
   return {kind:'records',tables:heads.map((head,index)=>{
    const labels=strings(head),columns=rowArray(rows[index]);
    const codes=Array.isArray(metadata.itcode)&&Array.isArray(metadata.itcode[index])?metadata.itcode[index] as unknown[]:null;
-   const links=(module.module_key==='major_customers'||module.module_key==='major_suppliers')&&codes
+   const links=module.category==='notes'&&codes
     ?labels.slice(1).map((_,row)=>{
      const code=codes[row+1];
      return typeof code==='string'&&/^[A-Fa-f0-9]{32}$/.test(code)

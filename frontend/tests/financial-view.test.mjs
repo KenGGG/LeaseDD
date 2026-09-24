@@ -453,7 +453,9 @@ test('customer company links use only source itcode at the same record position'
   ['宁德时代新能源科技股份有限公司','88.08亿'],['第二名','53.12亿'],['合计','163.49亿'],
  ]);
  assert.deepEqual(buildEnterpriseModuleView({...module,module_key:'major_suppliers'}).tables[0].rowLinks,view.tables[0].rowLinks);
- assert.equal(buildEnterpriseModuleView({...module,module_key:'other_receivables_top_five'}).tables[0].rowLinks,undefined);
+ assert.deepEqual(buildEnterpriseModuleView({...module,module_key:'receivables_impairment'}).tables[0].rowLinks,view.tables[0].rowLinks);
+ assert.deepEqual(buildEnterpriseModuleView({...module,module_key:'prepayments_top_five'}).tables[0].rowLinks,view.tables[0].rowLinks);
+ assert.equal(buildEnterpriseModuleView({...module,category:'statements'}).tables[0].rowLinks,undefined);
 });
 
 test('customer note repeats year groups under one matching header without merging changed layouts',()=>{

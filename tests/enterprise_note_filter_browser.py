@@ -355,3 +355,34 @@ def test_major_customer_record_columns_and_export_match_source_reading_area(monk
         book.close()
         page.screenshot(path='/tmp/leasedd-major-customer-layout-fixture.png', full_page=False)
         browser.close()
+
+
+def test_receivables_impairment_uses_source_company_code_only(monkeypatch):
+    company_code = '2BCA567463F37330E5BFA48DB23E8B5C'
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'receivables_impairment', 'module_name': '计提坏账的重大应收账款',
+        'category': 'notes', 'state': 'completed', 'response_sha256': 'a' * 64,
+        'request_params': {'menu_parent': '应收账款'}, 'raw_payload': {},
+        'parsed_payload': {
+            'head': [['单位名称', '东莞市迈科新能源有限公司', '第二名', '合计']],
+            'rows': [[['期末余额', '433.97万', '200.00万', '633.97万']]],
+            'metadata': {'report': ['20251231'], 'itcode': [['', company_code, '', '']]},
+        },
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1600, 'height': 1000})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='⊞ 应收账款').click()
+        page.get_by_role('button', name='计提坏账的重大应收账款', exact=True).click()
+        table = page.locator('.enterprise-record-table')
+        linked = table.get_by_role('link', name='东莞市迈科新能源有限公司')
+        assert linked.get_attribute('href') == 'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+company_code
+        assert linked.evaluate('(element) => getComputedStyle(element).color') == 'rgb(22, 119, 255)'
+        assert table.get_by_role('link', name='第二名').count() == 0
+        assert '433.97万' in table.inner_text()
+        browser.close()

@@ -437,8 +437,8 @@
  .enterprise-record-sparse.finance-matrix{table-layout:fixed}
  .enterprise-record-sparse.finance-matrix th,.enterprise-record-sparse.finance-matrix td{min-width:0;max-width:none}
  .enterprise-record-sparse.finance-matrix tbody th{padding-left:30px}
- .enterprise-record-sparse.finance-matrix tbody th a{color:#1677ff;text-decoration:none}
- .enterprise-record-sparse.finance-matrix tbody th a:hover{text-decoration:underline}
+ .enterprise-reference-notes .enterprise-record-table .finance-matrix tbody th a{color:#1677ff;text-decoration:none}
+ .enterprise-reference-notes .enterprise-record-table .finance-matrix tbody th a:hover{text-decoration:underline}
  .enterprise-record-sparse.finance-matrix td:not(.enterprise-record-spacer){text-align:center}
  .enterprise-record-sparse.finance-matrix .enterprise-record-spacer{padding:0}
 }
