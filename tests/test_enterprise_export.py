@@ -290,6 +290,24 @@ def test_source_record_excel_adds_provenance_and_text_serial_without_rewriting_v
         book.close()
 
 
+def test_other_payables_over_one_year_excel_matches_observed_source_layout():
+    module=SimpleNamespace(module_key='other_payables_over_one_year',module_name='账龄超过1年的重要其他应付款',
+                           category='notes',request_params={},raw_payload={},parsed_payload={
+        'head':[['项目名称','单位1','合计']],
+        'rows':[[['账面余额','2.69万','2.69万'],['占总额比例','0.06%','0.06%']]],
+        'metadata':{'report':['20200630']}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None),
+        ('序号','项目名称','账面余额','占总额比例'),
+        ('1','2020年中报',None,None),
+        ('2','单位1','2.69万','0.06%'),
+        ('3','合计','2.69万','0.06%')]
+    assert book.active['A4'].data_type=='s'
+    assert module.parsed_payload['rows'][0][0][1]=='2.69万'
+    book.close()
+
+
 def test_receivables_aging_excel_preserves_source_row_numbers_and_numeric_units():
     module=SimpleNamespace(module_key='receivables_aging',module_name='应收账款账龄分析',category='notes',
                            request_params={},raw_payload={},parsed_payload={

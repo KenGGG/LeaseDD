@@ -184,7 +184,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                           getattr(module,'module_key','') in {'receivables_top_five','other_receivables_top_five'})
     numbered_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'major_customers','major_suppliers','prepayments_top_five','receivables_impairment',
-        'other_receivables_impairment','payables_over_one_year'}) or precise_top_five
+        'other_receivables_impairment','payables_over_one_year','other_payables_over_one_year'}) or precise_top_five
     tag_columns=['companyTag'] if getattr(module,'module_key','')=='other_receivables_impairment' else ['companyTag','negativeTag']
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
