@@ -4,7 +4,7 @@ import {formatAmount,unitPowers} from './financial-view.ts';
 export type EnterpriseMatrixRow={key:string;uiKey?:string;label:string;unit:string;definitionUnit?:string;depth:number;section:boolean;bold?:boolean;hasChildren?:boolean;values:unknown[];description?:string|null;formula?:string|null};
 export type EnterpriseRecordTable={title:string;headers:string[];rows:unknown[][]};
 export type EnterpriseModuleView=
- | {kind:'matrix';periods:string[];rows:EnterpriseMatrixRow[]}
+ | {kind:'matrix';periods:string[];rows:EnterpriseMatrixRow[];firstColumnLabel?:string}
  | {kind:'records';tables:EnterpriseRecordTable[]}
  | {kind:'empty';confirmed:boolean;unavailable?:boolean};
 const filteredRecordNotes=new Set(['receivables_top_five','other_receivables_top_five']);
@@ -161,7 +161,7 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
    const sourceLevels=Array.isArray(metadata.level)?metadata.level:[];
    const levels=sourceLevels.slice(1).map(Number).filter(Number.isFinite);
    const baseLevel=levels.length?Math.min(...levels):0;
-   return {kind:'matrix',periods:cells.map(row=>enterprisePeriodLabel(row[0])),rows:strings(heads).slice(1).map((label,i)=>({
+   return {kind:'matrix',firstColumnLabel:String(heads[0]??''),periods:cells.map(row=>enterprisePeriodLabel(row[0])),rows:strings(heads).slice(1).map((label,i)=>({
     key:'note-'+i,label,unit:'',depth:Math.max(0,(Number(sourceLevels[i+1])||baseLevel)-baseLevel),section:false,bold:/合计$/.test(label),values:cells.map(row=>row[i+1]),
    }))};
   }

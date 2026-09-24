@@ -455,6 +455,7 @@ test('enterprise flat notes transpose periods into columns without changing form
  assert.equal(view.kind,'matrix');
  assert.deepEqual(view.periods,['2026年中报','2025年年报']);
  assert.deepEqual(view.rows.map(r=>r.values),[['2.87万','1.83万'],['','0'],['32.29亿','19.19亿']]);
+ assert.equal(view.firstColumnLabel,'项目名称');
  assert.equal(view.rows[2].bold,true);
  assert.equal(view.rows[2].section,false);
 });
@@ -471,6 +472,18 @@ test('inventory note uses disclosed level for child indentation and marks disclo
   ['跌价准备',1,false,false],['账面价值合计',0,true,false],
  ]);
  assert.deepEqual(view.rows.map(row=>row.values[0]),['7.88亿','7.91亿','342.44万','27.06亿']);
+});
+
+test('receivables aging note retains its disclosed aging column header',()=>{
+ const view=buildEnterpriseModuleView({module_key:'receivables_aging',category:'notes',parsed_payload:{
+  head:['账龄','1年内','期末余额','坏账准备','合计'],
+  rows:[['20251231','22.99亿','24.20亿','1.21亿','23.00亿']],
+  metadata:{level:['0','1','2','2','1']},
+ }});
+ assert.equal(view.kind,'matrix');
+ assert.equal(view.firstColumnLabel,'账龄');
+ assert.deepEqual(view.rows.map(row=>row.depth),[0,1,1,0]);
+ assert.deepEqual(view.rows.map(row=>row.values[0]),['22.99亿','24.20亿','1.21亿','23.00亿']);
 });
 
 test('audit report keeps source financial cells without importing PDF links',()=>{

@@ -104,7 +104,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
   </div>
   {exportError&&<p role="alert" className="finance-pending">{exportError}</p>}
   {view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={module.module_name+'原始数据表'}>
-   <table className="finance-matrix"><thead><tr><th>{module.category==='notes'?'项目名称':module.category==='analysis'?'指标名称':'报告期'}</th>{view.periods.map((period,index)=>{const source=enterpriseSourceLink(sources[index]);return <th key={period+index}>{period}{source&&<a className="enterprise-pdf-link" href={source.href} target="_blank" rel="noopener noreferrer" aria-label={'查看'+period+'原始报告'}>PDF</a>}</th>})}</tr></thead><tbody>
+   <table className="finance-matrix"><thead><tr><th>{view.firstColumnLabel||(module.category==='notes'?'项目名称':module.category==='analysis'?'指标名称':'报告期')}</th>{view.periods.map((period,index)=>{const source=enterpriseSourceLink(sources[index]);return <th key={period+index}>{period}{source&&<a className="enterprise-pdf-link" href={source.href} target="_blank" rel="noopener noreferrer" aria-label={'查看'+period+'原始报告'}>PDF</a>}</th>})}</tr></thead><tbody>
     {visibleRows.map((row,index)=><tr key={row.uiKey??row.key+'-'+index} className={row.section?'enterprise-section-row':row.bold?'finance-total':''}>
      <th style={{paddingLeft:12+row.depth*14}} title={[row.description,row.formula].filter(Boolean).join('\n')}>
       {row.hasChildren&&<button className="enterprise-row-toggle" aria-label={(collapsedRows.has(row.uiKey??row.key)?'展开':'收起')+row.label} aria-expanded={!collapsedRows.has(row.uiKey??row.key)} onClick={()=>toggleRow(row.uiKey??row.key)}>{collapsedRows.has(row.uiKey??row.key)?'+':'−'}</button>}
