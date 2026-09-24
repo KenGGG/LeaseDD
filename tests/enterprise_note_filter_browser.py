@@ -170,6 +170,10 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
         page.locator('.enterprise-source-table').wait_for()
         assert page.get_by_text('1.6300', exact=True).count() == 1
         assert page.locator('.enterprise-reference-tools').get_by_text('隐藏空行').count() == 0
+        report_select = page.locator('details.reference-select').first
+        report_select.locator('.reference-select-arrow').click()
+        assert report_select.locator('.reference-select-options').get_by_role('button', name='确定').count() == 1
+        report_select.locator('.reference-select-arrow').click()
         table = page.locator('.enterprise-source-table')
         table_box = table.bounding_box()
         sixth_period = table.locator('thead th').nth(6).bounding_box()
@@ -233,6 +237,12 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         page.get_by_role('button', name='移除最新筛选').click()
         assert table.locator('thead th').nth(1).inner_text() == '2025年年报'
         assert table.locator('thead th').filter(has_text='2026年中报').count() == 0
+        report_select = page.locator('details.reference-select').first
+        report_select.locator('.reference-select-arrow').click()
+        assert report_select.locator('.reference-select-options').is_visible()
+        assert report_select.locator('.reference-select-options button').count() == 0
+        report_select.locator('.reference-select-options label').filter(has_text='中报').locator('input').check()
+        assert table.locator('thead th').filter(has_text='2026年中报').count() == 1
         browser.close()
 
 
