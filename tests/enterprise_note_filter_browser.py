@@ -218,6 +218,7 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         page.get_by_role('button', name='货币资金', exact=True).click()
         table = page.locator('.enterprise-source-table')
         table.wait_for()
+        assert page.get_by_role('button', name='报告期倒序').count() == 0
         assert table.locator('tbody tr').count() == 4
         assert '2.87万' in table.locator('tbody tr').first.inner_text()
         assert '15.73亿' in table.locator('tbody tr').nth(1).inner_text()
