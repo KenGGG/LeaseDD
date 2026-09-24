@@ -176,6 +176,8 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
     output=[];source_numbers=[];cell_formats={}
     impairment_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'receivables_impairment','other_receivables_impairment'})
+    numbered_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
+        'major_customers','major_suppliers','prepayments_top_five','receivables_impairment','other_receivables_impairment'})
     tag_columns=['companyTag'] if getattr(module,'module_key','')=='other_receivables_impairment' else ['companyTag','negativeTag']
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
@@ -262,7 +264,15 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     if suffix and suffix[1] in {*UNIT_SCALES,'%','倍','天','元/股'}:
                         label=label[:suffix.start()]+'（'+display_unit+'）'
                     else:label+='（'+display_unit+'）'
-                output.append([label,*[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]])
+                converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
+                if getattr(module,'module_key','')=='receivables_aging':
+                    for position,value in enumerate(values):
+                        match=re.fullmatch(r'(-?\d[\d,]*(?:\.\d+)?)(万|亿|元)',str(value).strip())
+                        if match:
+                            converted[position]=Decimal(match[1].replace(',',''))
+                            cell_formats[(len(output)+2,position+3)]='###,###,##0.00"'+match[2]+'"'
+                        elif _blank(value):converted[position]=None
+                output.append([label,*converted])
                 source_numbers.append(index+1)
         elif heads:output=[heads,*rows]
         else:output=[['企业预警通该栏目暂无数据' if metadata.get('empty') else '当前栏目数据尚待核对']]
@@ -279,12 +289,12 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if len(unique_currencies)>1:
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
-    numbered_note=getattr(module,'module_key','') in {'cash_notes','inventory_notes','finance_costs'} and bool(periods)
+    numbered_note=getattr(module,'module_key','') in {'cash_notes','inventory_notes','finance_costs','receivables_aging'} and bool(periods)
     source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or numbered_note)
-    if impairment_record:
+    if numbered_record:
         source_style=True
         source_numbers=list(map(str,range(1,len(output))))
     return _workbook_bytes(module,output,source_style,decimals,
-                           source_label='单位名称' if impairment_record else '项目名称' if numbered_note else '指标名称',
-                           row_numbers=source_numbers if impairment_record else [str(number) for number in source_numbers] if numbered_note else None,
+                           source_label=str(heads[0][0]) if numbered_record else str(heads[0]) if numbered_note and getattr(module,'module_key','')=='receivables_aging' else '项目名称' if numbered_note else '指标名称',
+                           row_numbers=source_numbers if numbered_record else [str(number) for number in source_numbers] if numbered_note else None,
                            cell_formats=cell_formats)

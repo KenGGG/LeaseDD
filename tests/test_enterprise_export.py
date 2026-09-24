@@ -222,6 +222,47 @@ def test_other_impairment_excel_uses_only_source_company_tag_column():
     book.close()
 
 
+def test_source_record_excel_adds_provenance_and_text_serial_without_rewriting_values():
+    cases=(
+        ('major_customers','主要销售客户','客户名称','销售额','占销售总额比例','34.03亿','39.03%'),
+        ('major_suppliers','主要供应商','客户名称','采购额','占采购总额比例','10.26亿','13.02%'),
+        ('prepayments_top_five','前五名预付款','单位名称','账面余额','占总额比例','2,975.86万','37.36%'),
+    )
+    for key,name,label,amount_label,ratio_label,amount,ratio in cases:
+        module=SimpleNamespace(module_key=key,module_name=name,category='notes',request_params={},raw_payload={},parsed_payload={
+            'head':[[label,'第一名']],
+            'rows':[[[amount_label,amount],[ratio_label,ratio]]],
+            'metadata':{'report':['20251231']}})
+        book,values=rows(export_enterprise_workbook(module))
+        assert values==[
+            ('数据来源：企业预警通',None,None,None),
+            ('序号',label,amount_label,ratio_label),
+            ('1','2025年年报',None,None),
+            ('2','第一名',amount,ratio)]
+        assert book.active['A4'].data_type=='s'
+        assert book.active['C4'].data_type=='s'
+        book.close()
+
+
+def test_receivables_aging_excel_preserves_source_row_numbers_and_numeric_units():
+    module=SimpleNamespace(module_key='receivables_aging',module_name='应收账款账龄分析',category='notes',
+                           request_params={},raw_payload={},parsed_payload={
+        'head':['账龄','1年内','空行','合计'],
+        'rows':[['20251231','22.99亿','- ','23.00亿'],
+                ['20241231','16.77亿','', '16.77亿']],
+        'metadata':{}})
+    book,values=rows(export_enterprise_workbook(module,report='annual'))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None),
+        ('序号','账龄','2025年年报','2024年年报'),
+        ('1','1年内',22.99,16.77),
+        ('3','合计',23,16.77)]
+    assert book.active['A4'].data_type=='s'
+    assert book.active['C3'].number_format=='###,###,##0.00"亿"'
+    assert module.parsed_payload['rows'][0][1]=='22.99亿'
+    book.close()
+
+
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
     module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
         parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[
