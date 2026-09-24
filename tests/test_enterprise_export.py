@@ -308,6 +308,27 @@ def test_restricted_assets_excel_numbers_only_visible_rows_like_source():
     book.close()
 
 
+def test_important_payables_excel_keeps_source_row_numbers_and_text_values():
+    module=SimpleNamespace(module_key='payables_over_one_year',module_name='账龄超过1年的重要应付账款',
+                           category='notes',request_params={},raw_payload={},parsed_payload={
+        'head':[['项目名称','供应商一','供应商二','合计']],
+        'rows':[[['账面余额','7,995.97万','5,834.27万','1.38亿'],
+                 ['占总额比例','2.33%','1.70%','4.02%']]],
+        'metadata':{'report':['20260630']}})
+    book,values=rows(export_enterprise_workbook(module))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None),
+        ('序号','项目名称','账面余额','占总额比例'),
+        ('1','2026年中报',None,None),
+        ('2','供应商一','7,995.97万','2.33%'),
+        ('3','供应商二','5,834.27万','1.70%'),
+        ('4','合计','1.38亿','4.02%')]
+    assert book.active['A4'].data_type=='s'
+    assert book.active['C4'].data_type=='s'
+    assert module.parsed_payload['rows'][0][0][1]=='7,995.97万'
+    book.close()
+
+
 def test_main_business_excel_renumbers_selected_period_rows_but_counts_hidden_sibling():
     module=SimpleNamespace(module_key='main_business',module_name='主营构成',category='notes',
                            request_params={'unitCode':'4'},raw_payload={},parsed_payload={
