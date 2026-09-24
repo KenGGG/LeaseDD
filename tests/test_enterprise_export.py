@@ -181,6 +181,27 @@ def test_precise_receivables_excel_uses_saved_full_value_and_declared_source_uni
     book.close()
 
 
+def test_impairment_record_excel_keeps_source_serial_amounts_and_aligned_tags():
+    module=SimpleNamespace(module_key='receivables_impairment',module_name='计提坏账的重大应收账款',category='notes',
+                           request_params={},raw_payload={},parsed_payload={
+        'head':[['单位名称','东莞市迈科新能源有限公司','合肥锂能科技有限公司']],
+        'rows':[[['账面余额','433.97万','11.89万'],['坏账准备','433.97万','11.89万'],['账面价值','-','-']]],
+        'metadata':{'report':['20240630'],
+                    'companyTag':[['',['民企'],['民企']]],
+                    'negativeTag':[['',['失信','终本案件'],['终本案件']]]}})
+    book,values=rows(export_enterprise_workbook(module))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None,None,None,None),
+        ('序号','单位名称','账面余额','坏账准备','账面价值','企业类型标签','负面信息标签'),
+        ('1','2024年中报',None,None,None,None,None),
+        ('2','东莞市迈科新能源有限公司',433.97,433.97,None,'民企','失信 终本案件'),
+        ('3','合肥锂能科技有限公司',11.89,11.89,None,'民企','终本案件')]
+    assert book.active['C4'].number_format=='###,###,##0.00"万"'
+    assert book.active['A4'].data_type=='s'
+    assert module.parsed_payload['rows'][0][0][1]=='433.97万'
+    book.close()
+
+
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
     module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
         parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[
