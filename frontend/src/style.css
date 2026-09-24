@@ -56,6 +56,12 @@ main{padding:28px 32px 40px;max-width:1490px;width:100%;margin:auto;flex:1}
 .panel-head{padding:22px 25px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--border)}
 .panel-head p{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.6}
 .panel-head>svg{color:#8da0ae}
+.enterprise-overview-update{border-color:#c8ddec;background:linear-gradient(105deg,#f7fbff 0%,#fff 72%)}
+.enterprise-overview-update .panel-head{border-bottom:0;padding-bottom:10px}
+.enterprise-overview-update .panel-head h2{font-size:17px}
+.enterprise-overview-update .button{white-space:nowrap}
+.enterprise-overview-status{padding:0 25px 20px;color:var(--muted);font-size:13px;line-height:1.5}
+.enterprise-overview-update>.button{margin:0 25px 20px}
 .count{font-size:12px;font-weight:500;background:#f0f4f7;color:var(--muted);padding:2px 6px;border-radius:4px;vertical-align:middle;margin-left:8px}
 .search{display:flex;align-items:center;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:#96a3af;gap:7px}
 .search input{border:0;width:170px;font-size:13px;background:transparent;color:var(--text)}
@@ -257,6 +263,8 @@ main{padding:25px 18px}
 .stagebar>div{font-size:12px;gap:6px}
 .stagebar svg{display:none}
 .panel-head{flex-wrap:wrap;gap:15px;padding:18px}
+.enterprise-overview-update .panel-head{align-items:flex-start}
+.enterprise-overview-status{padding:0 18px 18px}
 .search{width:100%}
 .project-row{padding:20px 17px;gap:12px}
 .project-row>.badge{display:none}
@@ -318,4 +326,3 @@ footer>span:not(.version){display:none}
 
 
 .finance-number:focus-visible{outline-offset:-2px}
-

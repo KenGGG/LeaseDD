@@ -3,12 +3,26 @@ import assert from 'node:assert/strict';
 import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,enterpriseReportOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseStatementTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
+import * as apiHelpers from '../src/api.ts';
 import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
 import * as viewHelpers from '../src/enterprise-financial-view.ts';
 
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
 const a=statement('a','2025-12-31',[item('a1','1000000')]);
+test('project overview update requires a bound company and project admin writer',()=>{
+ const bound={source_type:'enterprise_warning',binding:{company_code:'A001',company_name:'甲公司',identity:{}},import:{id:'run',state:'completed',quality_state:'passed',module_status:{},content_sha256:null,started_at:1,completed_at:2}};
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(bound,true,true,false)?.enabled,true);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate({...bound,binding:null},true,true,false).enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,true,false,false).enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,false,true,false).enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,true,true,true).enabled,false);
+});
+test('project overview update is disabled while source import is running',()=>{
+ const status={source_type:'enterprise_warning',binding:{company_code:'A001',company_name:'甲公司',identity:{}},import:{id:'run',state:'running',quality_state:'not_checked',module_status:{},content_sha256:null,started_at:1,completed_at:null}};
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,true,true,false)?.enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,true,true,false)?.label,'企业预警通更新中…');
+});
 test('trend axes reproduce the observed billion magnitude and six ticks without changing table values',()=>{
  const values=[169.7250892423,null,76.1294121646,87.1649239191];
  const axis=enterpriseTrendAxis(values,'亿元','人民币',true);
@@ -447,14 +461,14 @@ test('enterprise flat notes transpose periods into columns without changing form
  assert.equal(view.rows[2].section,false);
 });
 
-test('audit report opens only verified PDF links for the matching disclosed date',()=>{
+test('audit report keeps source financial cells without importing PDF links',()=>{
  const url='https://hwfile.finchina.com/MRGG/CNSESZ_SJBG/2026/report.pdf';
  const module={module_key:'audit_report',category:'notes',parsed_payload:{head:['报告期','审计报告正文'],
   rows:[['20251231','查看'],['20241231','查看']],metadata:{audit_pdf_links:{'20251231':url}}}};
  const view=buildEnterpriseModuleView(module);
- assert.deepEqual(view.rows[0].values,['查看__'+url,'查看']);
+ assert.deepEqual(view.rows[0].values,['查看','查看']);
  assert.deepEqual(module.parsed_payload.rows[0],['20251231','查看']);
- assert.equal(enterpriseSourceLink(view.rows[0].values[0]).href,url);
+ assert.equal(enterpriseSourceLink(view.rows[0].values[0]),null);
 });
 
 test('enterprise subtotal bold and expandable amount rows are not orange section headings',()=>{

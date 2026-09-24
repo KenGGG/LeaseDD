@@ -279,7 +279,7 @@ def test_main_business_ignores_other_legacy_get_data_responses():
     assert collected.parsed["rows"][0]["values"] == ["100"]
 
 
-def test_audit_report_links_require_matching_disclosed_period_and_preserve_raw_text():
+def test_audit_report_import_keeps_financial_table_without_pdf_metadata():
     endpoint = '/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data'
     module = EnterpriseModule('audit_report', '审计报告', 'notes', endpoint, 1)
     original = {'data': {'head': ['报告期', '审计报告正文'], 'value': [['20251231', '查看'], ['20241231', '查看']]}}
@@ -292,20 +292,8 @@ def test_audit_report_links_require_matching_disclosed_period_and_preserve_raw_t
                            ('/getData.action?_t=218&date=20241231', wrong, {'date': '20241231'}, 'audit_pdf')])
     result = QyjCollector(session_factory=lambda: session).collect_module('a', module)
     assert result.parsed['rows'] == original['data']['value']
-    assert result.parsed['metadata']['audit_pdf_links'] == {'20251231': pdf['data'][0]['filePath']}
-    assert len(result.raw['_audit_pdf_responses']) == 2
-
-
-def test_audit_report_rejects_untrusted_pdf_host_without_mutating_source():
-    endpoint = '/finchinaAPP/v1/finchina-finance/v1/finance/getCompanyF9Data'
-    source = {'data': {'head': ['报告期', '审计报告正文'], 'value': [['20251231', '查看']]}}
-    pdf = {'returncode': 0, 'data': [{'reportDate': '2025-12-31', 'filePath': 'https://evil.test/report.pdf'}]}
-    session = FakeSession([(endpoint, source, {'code': 'a'}),
-                           ('/getData.action?_t=218&date=20251231', pdf, {'date': '20251231'}, 'audit_pdf')])
-    result = QyjCollector(session_factory=lambda: session).collect_module('a',
-                EnterpriseModule('audit_report', '审计报告', 'notes', endpoint, 1))
-    assert result.parsed['metadata']['audit_pdf_links'] == {}
-    assert result.raw['data'] == source['data']
+    assert 'audit_pdf_links' not in result.parsed['metadata']
+    assert result.raw == original
 
 
 def test_currency_variants_preserve_each_response_and_default_disclosed_values():

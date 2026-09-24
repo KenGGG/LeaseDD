@@ -158,14 +158,8 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
  if(heads.length&&rows.length){
   const cells=rowArray(rows);
   if(module.category==='notes'&&cells.every(row=>/^\d{8}$/.test(String(row[0])))){
-   const auditLinks=object(metadata.audit_pdf_links);
    return {kind:'matrix',periods:cells.map(row=>enterprisePeriodLabel(row[0])),rows:strings(heads).slice(1).map((label,i)=>({
-    key:'note-'+i,label,unit:'',depth:0,section:false,bold:label==='合计',values:cells.map(row=>{
-     const value=row[i+1],href=auditLinks[String(row[0])];
-     return module.module_key==='audit_report'&&label==='审计报告正文'&&value==='查看'
-      &&typeof href==='string'&&href.startsWith('https://hwfile.finchina.com/')&&href.toLowerCase().split('?')[0].endsWith('.pdf')
-       ?value+'__'+href:value;
-    }),
+    key:'note-'+i,label,unit:'',depth:0,section:false,bold:label==='合计',values:cells.map(row=>row[i+1]),
    }))};
   }
   return {kind:'records',tables:[{title:module.module_name||module.module_key,headers:strings(heads),rows:rowArray(rows)}]};

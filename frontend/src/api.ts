@@ -15,6 +15,11 @@ export type Task = {id:string;kind:string;mode:string;state:string;attempts:numb
 export function selectedEnterpriseCandidate(items:EnterpriseCandidate[],code:string){return items.find(item=>item.code===code)||null}
 export function enterpriseCoverage(items:Pick<EnterpriseModuleData,'category'|'state'>[]){const available=items.filter(item=>item.state!=='unavailable');const statements=available.filter(item=>item.category==='statements'||item.category==='indicators').length,analysis=available.filter(item=>item.category==='analysis').length,notes=available.filter(item=>item.category==='notes').length;return {statements,analysis,notes,total:statements+analysis+notes}}
 export function enterpriseStateLabel(state?:string){return ({queued:'等待导入',running:'正在导入',completed:'导入完成',partial:'导入不完整',failed:'导入失败'} as Record<string,string>)[state||'']||'尚未导入'}
+export function enterpriseOverviewUpdate(status:EnterpriseStatus|null,admin:boolean,writer:boolean,busy:boolean){
+ const active=['queued','running'].includes(status?.import?.state||'');
+ return {enabled:Boolean(status?.binding)&&admin&&writer&&!active&&!busy,
+  label:active?'企业预警通更新中…':'企业预警通更新数据'};
+}
 export function failedEnterpriseModules(status:Record<string,{state:string;error:string|null}>={}){return Object.entries(status).filter(([,value])=>value.state==='failed').map(([key])=>key)}
 export function taskDisplay(task:Pick<Task,'kind'|'mode'>){if(task.kind==='enterprise_import')return {label:'企业预警通财务导入',mode:'结构化接口'};if(task.kind==='generate')return {label:'章节生成',mode:task.mode==='agnes'?'Agnes':'合成验证'};if(task.kind==='extract_finance')return {label:'资料转换与财务提取',mode:'MinerU / MarkItDown + Agnes'};return {label:'Word 导出',mode:'合成验证'}}
 export function usesPdfEvidence(sourceType?:string){return sourceType!=='enterprise_warning'}

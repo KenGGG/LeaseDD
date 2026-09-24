@@ -8,7 +8,7 @@ import os
 import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 SEARCH_ENDPOINT = "/finchinaAPP/v1/finchina-search/v1/multipleSearch"
@@ -452,28 +452,6 @@ class QyjCollector:
             else:
                 parser = parse_notes if module.key == "long_term_receivables" and isinstance(raw.get("data"), dict) else _parser(collected_module)
                 parsed = parser(raw)
-            if module.key == 'audit_report':
-                pdf_responses = [self._parts(item) for item in responses if len(item) > 3 and item[3] == 'audit_pdf']
-                if pdf_responses:
-                    disclosed = {str(row[0]) for row in parsed['rows'] if isinstance(row, list) and row}
-                    links = {}
-                    for pdf_url, pdf_payload, pdf_params in pdf_responses:
-                        date = str(pdf_params.get('date', ''))
-                        entries = pdf_payload.get('data') if pdf_payload.get('returncode') == 0 else None
-                        if (date not in disclosed or not re.fullmatch(r'\d{8}', date)
-                                or not isinstance(entries, list) or len(entries) != 1 or not isinstance(entries[0], dict)):
-                            continue
-                        entry = entries[0]
-                        path = entry.get('filePath')
-                        if (str(entry.get('reportDate', '')).replace('-', '') == date
-                                and isinstance(path, str) and urlparse(path).scheme == 'https'
-                                and urlparse(path).hostname == 'hwfile.finchina.com'
-                                and path.lower().split('?')[0].endswith('.pdf')):
-                            links[date] = path
-                    raw = {**raw, '_audit_pdf_responses': [
-                        {'source_url': url, 'request_params': params, 'payload': payload}
-                        for url, payload, params in pdf_responses]}
-                    parsed['metadata']['audit_pdf_links'] = links
             return CollectedModule(collected_module, raw, parsed, _hash(raw))
         finally:
             session.close()
@@ -679,22 +657,6 @@ class _PlaywrightSession:
                             and 'leftTreeShow' in raw['data'] and raw['data'].get('value') in (None, [])):
                         params['source_menu'] = self._note_menu_evidence(module, kwargs['company_code'])
                     direct_responses.append((self.base+module.endpoint_path, raw, params))
-                    if module.key == 'audit_report' and isinstance(raw.get('data'), dict) and raw['data'].get('value'):
-                        evidence = self._note_menu_evidence(module, kwargs['company_code'])
-                        if evidence['disabled']:
-                            return
-                        self._menu_item(module.name).click(force=True)
-                        visible_links = []
-                        for _ in range(20):
-                            visible_links = [item for item in self.page.get_by_text('查看', exact=True).all() if item.is_visible()]
-                            if visible_links:
-                                break
-                            self.page.wait_for_timeout(250)
-                        if not visible_links:
-                            raise EnterpriseWarningError('audit_pdf_link_unavailable')
-                        with self.page.expect_response(lambda response: response.url.startswith(self.base+MAIN_BUSINESS_ENDPOINT)
-                                and parse_qs(urlparse(response.url).query).get('_t') == ['218'], timeout=20000):
-                            visible_links[0].click(force=True)
                     return
                 if module.category in ("analysis", "notes"):
                     self.page.get_by_text("财务分析" if module.category == "analysis" else "财务附注", exact=True).click(force=True)
@@ -719,27 +681,6 @@ class _PlaywrightSession:
                     )
             responses=self._capture(run, wait_ms=5000 if module.key == "main_business" else 2500)
             if direct_responses:
-                if module.key == 'audit_report' and isinstance(direct_responses[0][1].get('data'), dict):
-                    periods = [str(row[0]) for row in direct_responses[0][1]['data'].get('value', [])
-                               if isinstance(row, list) and row and re.fullmatch(r'\d{8}', str(row[0]))]
-                    captured = [entry for entry in responses if MAIN_BUSINESS_ENDPOINT in entry[0]
-                                and str(entry[2].get('_t')) == '218'
-                                and str(entry[2].get('code')) == kwargs['company_code']]
-                    headers = dict(self._legacy_headers.get('218') or {})
-                    if periods and not headers.get('dataid'):
-                        raise EnterpriseWarningError('authentication_required')
-                    for period in periods:
-                        first = next((entry for entry in captured if str(entry[2].get('date')) == period), None)
-                        if first:
-                            direct_responses.append((*first[:3], 'audit_pdf'))
-                            continue
-                        self.page.wait_for_timeout(3100)
-                        params = {'_t':'218', 'code':kwargs['company_code'], 'date':period, 'type':'company'}
-                        url = self.base+MAIN_BUSINESS_ENDPOINT+'?'+urlencode(params)
-                        response = self._context.request.post(url, headers=headers, timeout=30000)
-                        if not response.ok:
-                            raise EnterpriseWarningError('source_request_unavailable')
-                        direct_responses.append((url, response.json(), params, 'audit_pdf'))
                 return direct_responses
             if module.key in LEGACY_MATRIX_MODULES | LEGACY_RECORD_MODULES:
                 operation = '1227' if module.key == 'main_business' else '1311'
