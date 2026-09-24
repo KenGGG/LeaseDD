@@ -88,6 +88,45 @@ def test_new_queued_import_is_visible_in_status(api):
         assert status(pid, user=user, db=db)['import']['state'] == 'queued'
 
 
+def test_project_reviewer_can_refresh_bound_company_without_rebinding(api):
+    app, (pid, admin_id, member_id, _) = api
+    route = endpoint(app, '/api/projects/{pid}/enterprise/import', 'POST')
+    with app.state.db.begin() as db:
+        member = db.scalar(select(Member).where(Member.project_id == pid, Member.user_id == member_id))
+        member.role = 'reviewer'
+    with app.state.db() as db:
+        route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=db.get(User, admin_id), db=db)
+    with app.state.db.begin() as db:
+        task = db.scalar(select(Task).where(Task.project_id == pid))
+        task.state = 'completed'
+    with app.state.db() as db:
+        result = route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=db.get(User, member_id), db=db)
+        assert result['state'] == 'queued'
+        assert db.scalar(select(func.count()).select_from(Task)) == 2
+        assert db.scalar(select(EnterpriseBinding)).company_code == 'a'
+
+
+def test_project_member_refresh_cannot_search_or_change_binding(api):
+    app, (pid, admin_id, member_id, outsider_id) = api
+    route = endpoint(app, '/api/projects/{pid}/enterprise/import', 'POST')
+    with app.state.db() as db:
+        route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=db.get(User, admin_id), db=db)
+    with app.state.db.begin() as db:
+        db.scalar(select(Task).where(Task.project_id == pid)).state = 'completed'
+    with app.state.db() as db:
+        member = db.get(User, member_id)
+        for request in (EnterpriseImportRequest(query='乙'),
+                        EnterpriseImportRequest(company_code='b', company_name='乙公司'),
+                        EnterpriseImportRequest(company_code='a', company_name='冒名公司')):
+            with pytest.raises(HTTPException) as denied:
+                route(pid, request, user=member, db=db)
+            assert denied.value.status_code == 403
+        with pytest.raises(HTTPException) as denied:
+            route(pid, EnterpriseImportRequest(company_code='a', company_name='甲公司'), user=db.get(User, outsider_id), db=db)
+        assert denied.value.status_code == 403
+        assert db.scalar(select(EnterpriseBinding)).company_name == '甲公司'
+
+
 def test_rebinding_does_not_relabel_previous_company_financial_data(api):
     app,(pid,admin_id,_,_)=api
     route=endpoint(app,'/api/projects/{pid}/enterprise/import','POST')

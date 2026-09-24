@@ -15,9 +15,9 @@ export type Task = {id:string;kind:string;mode:string;state:string;attempts:numb
 export function selectedEnterpriseCandidate(items:EnterpriseCandidate[],code:string){return items.find(item=>item.code===code)||null}
 export function enterpriseCoverage(items:Pick<EnterpriseModuleData,'category'|'state'>[]){const available=items.filter(item=>item.state!=='unavailable');const statements=available.filter(item=>item.category==='statements'||item.category==='indicators').length,analysis=available.filter(item=>item.category==='analysis').length,notes=available.filter(item=>item.category==='notes').length;return {statements,analysis,notes,total:statements+analysis+notes}}
 export function enterpriseStateLabel(state?:string){return ({queued:'等待导入',running:'正在导入',completed:'导入完成',partial:'导入不完整',failed:'导入失败'} as Record<string,string>)[state||'']||'尚未导入'}
-export function enterpriseOverviewUpdate(status:EnterpriseStatus|null,admin:boolean,writer:boolean,busy:boolean){
+export function enterpriseOverviewUpdate(status:EnterpriseStatus|null,busy:boolean){
  const active=['queued','running'].includes(status?.import?.state||'');
- return {enabled:Boolean(status?.binding)&&admin&&writer&&!active&&!busy,
+ return {enabled:Boolean(status?.binding)&&!active&&!busy,
   label:active?'企业预警通更新中…':'企业预警通更新数据'};
 }
 export function failedEnterpriseModules(status:Record<string,{state:string;error:string|null}>={}){return Object.entries(status).filter(([,value])=>value.state==='failed').map(([key])=>key)}

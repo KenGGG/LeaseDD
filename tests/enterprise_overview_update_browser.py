@@ -10,9 +10,9 @@ from playwright.sync_api import expect, sync_playwright
 project = {
     'id': 'overview-fixture', 'name': '德方纳米', 'revision': 1, 'metrics': {},
     'metrics_current': False, 'section_current': False, 'production_template_status': 'synthetic',
-    'members': [{'user_id': 'admin', 'username': '管理员', 'role': 'writer'}],
+    'members': [{'user_id': 'reviewer', 'username': '复核人员', 'role': 'reviewer'}],
 }
-user = {'id': 'admin', 'username': '管理员', 'admin': True, 'csrf_token': 'fixture'}
+user = {'id': 'reviewer', 'username': '复核人员', 'admin': False, 'csrf_token': 'fixture'}
 binding = {'company_code': 'EE3886998BC906405B2889706A748814', 'company_name': '德方纳米', 'identity': {}}
 state = {'import': {'id': 'previous', 'state': 'completed', 'quality_state': 'passed',
                     'module_status': {}, 'content_sha256': 'a' * 64,

@@ -10,18 +10,16 @@ import * as viewHelpers from '../src/enterprise-financial-view.ts';
 const item=(id,value,status='source_verified')=>({id,concept:'cash',source_name:'货币资金',raw_value:value,raw_unit:'元',normalized_value:value,status});
 const statement=(id,period,items,extra={})=>({id,document_id:id,statement_type:'balance_sheet',entity:'测试公司',scope:'consolidated',currency:'CNY',period,period_normalized:period,period_kind:'instant',raw_unit:'元',issues:[],items,...extra});
 const a=statement('a','2025-12-31',[item('a1','1000000')]);
-test('project overview update requires a bound company and project admin writer',()=>{
+test('project overview update is available to any member of a bound project',()=>{
  const bound={source_type:'enterprise_warning',binding:{company_code:'A001',company_name:'甲公司',identity:{}},import:{id:'run',state:'completed',quality_state:'passed',module_status:{},content_sha256:null,started_at:1,completed_at:2}};
- assert.equal(apiHelpers.enterpriseOverviewUpdate?.(bound,true,true,false)?.enabled,true);
- assert.equal(apiHelpers.enterpriseOverviewUpdate({...bound,binding:null},true,true,false).enabled,false);
- assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,true,false,false).enabled,false);
- assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,false,true,false).enabled,false);
- assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,true,true,true).enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(bound,false)?.enabled,true);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate({...bound,binding:null},false).enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate(bound,true).enabled,false);
 });
 test('project overview update is disabled while source import is running',()=>{
  const status={source_type:'enterprise_warning',binding:{company_code:'A001',company_name:'甲公司',identity:{}},import:{id:'run',state:'running',quality_state:'not_checked',module_status:{},content_sha256:null,started_at:1,completed_at:null}};
- assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,true,true,false)?.enabled,false);
- assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,true,true,false)?.label,'企业预警通更新中…');
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,false)?.enabled,false);
+ assert.equal(apiHelpers.enterpriseOverviewUpdate?.(status,false)?.label,'企业预警通更新中…');
 });
 test('trend axes reproduce the observed billion magnitude and six ticks without changing table values',()=>{
  const values=[169.7250892423,null,76.1294121646,87.1649239191];

@@ -308,25 +308,29 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
         return enterprise_status_view(db,pid)
 
     @app.post('/api/projects/{pid}/enterprise/import')
-    def enterprise_import(pid:str,payload:EnterpriseImportRequest,user=Depends(admin),db=Depends(session)):
-        admin(user);p=project(db,pid,user,write=True,lock=True)
-        collector=getattr(app.state,'enterprise_collector',None)
-        if collector is None:
-            from .enterprise_warning import QyjCollector
-            collector=QyjCollector();app.state.enterprise_collector=collector
+    def enterprise_import(pid:str,payload:EnterpriseImportRequest,user=Depends(current),db=Depends(session)):
+        p=project(db,pid,user,lock=True)
+        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
         if not payload.company_code:
+            admin(user);project(db,pid,user,write=True)
+            collector=getattr(app.state,'enterprise_collector',None)
+            if collector is None:
+                from .enterprise_warning import QyjCollector
+                collector=QyjCollector();app.state.enterprise_collector=collector
             candidates=collector.search(payload.query or p.name)
             return {'candidates':[{'code':item.code,'name':item.name,'identity':item.identity} for item in candidates]}
-        binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
+        rebinding=not binding or (binding.company_code,binding.company_name)!=(payload.company_code,payload.company_name)
+        if rebinding:
+            admin(user);project(db,pid,user,write=True)
         active=db.scalar(select(Task).where(Task.project_id==pid,Task.kind=='enterprise_import',Task.state.in_(['queued','running'])))
         if active and binding and binding.company_code!=payload.company_code:
             raise HTTPException(409,'enterprise_import_in_progress')
         if not binding:
             binding=EnterpriseBinding(project_id=pid,company_code=payload.company_code,company_name=payload.company_name,
                                       identity={},created_by=user.id,created_at=time.time());db.add(binding);db.flush()
-        else:
+        elif rebinding:
             binding.company_code=payload.company_code;binding.company_name=payload.company_name
-        audit(db,user,'bind_enterprise',pid,{'company_code':payload.company_code})
+        if rebinding:audit(db,user,'bind_enterprise',pid,{'company_code':payload.company_code})
         from .enterprise_import import enqueue_enterprise_import
         task,_=enqueue_enterprise_import(db,p,binding,user)
         audit(db,user,'enqueue_enterprise_import',pid,{'task_id':task.id});db.commit()
