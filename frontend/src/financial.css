@@ -439,6 +439,16 @@
  .enterprise-record-sparse.finance-matrix tbody th{padding-left:30px}
  .enterprise-reference-notes .enterprise-record-table .finance-matrix tbody th a{color:#1677ff;text-decoration:none}
  .enterprise-reference-notes .enterprise-record-table .finance-matrix tbody th a:hover{text-decoration:underline}
+ .enterprise-record-tags-toggle{float:right;display:inline-flex;align-items:center;gap:3px;color:#26313d;font-weight:400}
+ .enterprise-record-tags-toggle input{margin:0;accent-color:#1677ff}
+ .enterprise-record-tags{display:inline;line-height:1.6;margin-left:5px}
+ .enterprise-company-tag,.enterprise-negative-tag{display:inline-block;margin:0 2px;padding:0 3px;font-size:12px;line-height:18px;font-weight:400;white-space:nowrap}
+ .enterprise-company-tag{color:#1677ff;background:#eef5ff}
+ .enterprise-negative-tag{color:#fe3a2f;background:#fff0ef}
+ .enterprise-negative-popover{position:relative;border:0;cursor:pointer;font-family:inherit}
+ .enterprise-negative-popover>span[role=tooltip]{display:none;position:absolute;top:100%;left:0;z-index:10;min-width:90px;padding:6px 8px;background:#fff;border:1px solid #dce4ef;box-shadow:0 4px 14px #233b5333;color:#26313d;text-align:left}
+ .enterprise-negative-popover:hover>span[role=tooltip],.enterprise-negative-popover:focus-visible>span[role=tooltip]{display:grid}
+ .enterprise-negative-popover>span[role=tooltip]>span{display:block;white-space:nowrap}
  .enterprise-record-sparse.finance-matrix td:not(.enterprise-record-spacer){text-align:center}
  .enterprise-record-sparse.finance-matrix .enterprise-record-spacer{padding:0}
 }

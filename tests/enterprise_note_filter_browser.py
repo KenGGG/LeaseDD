@@ -366,7 +366,11 @@ def test_receivables_impairment_uses_source_company_code_only(monkeypatch):
         'parsed_payload': {
             'head': [['单位名称', '东莞市迈科新能源有限公司', '第二名', '合计']],
             'rows': [[['期末余额', '433.97万', '200.00万', '633.97万']]],
-            'metadata': {'report': ['20251231'], 'itcode': [['', company_code, '', '']]},
+            'metadata': {
+                'report': ['20240630'], 'itcode': [['', company_code, '', '']],
+                'companyTag': [['', ['民企'], [], []]],
+                'negativeTag': [['', ['失信', '终本案件'], ['终本案件'], []]],
+            },
         },
     })
     with sync_playwright() as playwright:
@@ -380,9 +384,29 @@ def test_receivables_impairment_uses_source_company_code_only(monkeypatch):
         page.get_by_role('button', name='⊞ 应收账款').click()
         page.get_by_role('button', name='计提坏账的重大应收账款', exact=True).click()
         table = page.locator('.enterprise-record-table')
+        heading = page.locator('.finance-heading h2').bounding_box()
+        assert page.get_by_role('button', name='导出Excel').bounding_box()['y'] <= heading['y'] + 18
+        assert table.bounding_box()['y'] <= 160
+        widths = [cell.bounding_box()['width'] for cell in table.locator('thead th').all()]
+        assert 300 <= widths[0] <= 340
+        assert 125 <= widths[1] <= 165
+        assert widths[-1] >= 300
         linked = table.get_by_role('link', name='东莞市迈科新能源有限公司')
         assert linked.get_attribute('href') == 'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+company_code
         assert linked.evaluate('(element) => getComputedStyle(element).color') == 'rgb(22, 119, 255)'
         assert table.get_by_role('link', name='第二名').count() == 0
         assert '433.97万' in table.inner_text()
+        tags = table.get_by_role('checkbox', name='标签')
+        assert tags.is_checked()
+        assert '民企' in table.inner_text()
+        page.screenshot(path='/tmp/leasedd-impairment-tags-fixture.png', full_page=False)
+        adverse = table.get_by_role('button', name='负面信息2')
+        adverse.hover()
+        assert '失信' in table.get_by_role('tooltip').inner_text()
+        assert '终本案件' in table.get_by_role('tooltip').inner_text()
+        tags.uncheck()
+        assert '民企' not in table.inner_text()
+        assert '负面信息2' not in table.inner_text()
+        assert '433.97万' in table.inner_text()
+        assert linked.get_attribute('href') == 'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+company_code
         browser.close()

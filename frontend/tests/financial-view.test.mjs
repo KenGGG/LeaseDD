@@ -458,6 +458,32 @@ test('customer company links use only source itcode at the same record position'
  assert.equal(buildEnterpriseModuleView({...module,category:'statements'}).tables[0].rowLinks,undefined);
 });
 
+test('record company and adverse tags stay aligned with disclosed name rows',()=>{
+ const view=buildEnterpriseModuleView({module_key:'receivables_impairment',category:'notes',parsed_payload:{
+  head:[['单位名称','东莞市迈科新能源有限公司','第二名','合计']],
+  rows:[[['账面余额','433.97万','11.89万','445.86万']]],
+  metadata:{report:['20240630'],companyTag:[['',['民企'],[],[]]],negativeTag:[['',['失信','终本案件'],['终本案件'],[]]]},
+ }});
+ assert.equal(view.kind,'records');
+ assert.deepEqual(view.tables[0].rowTags,[
+  {company:['民企'],negative:['失信','终本案件']},
+  {company:[],negative:['终本案件']},
+  {company:[],negative:[]},
+ ]);
+ assert.deepEqual(view.tables[0].rows[0],['东莞市迈科新能源有限公司','433.97万']);
+});
+
+test('unaligned legacy tag arrays are not attached to the wrong record group',()=>{
+ const view=buildEnterpriseModuleView({module_key:'receivables_top_five',category:'notes',parsed_payload:{
+  head:[['单位名称','甲公司','合计'],['单位名称','乙公司','合计']],
+  rows:[[['余额','1万','1万']],[['余额','2万','2万']]],
+  metadata:{report:['20251231','20240630'],companyTag:[['', ['民企'], '']],negativeTag:[['', ['失信'], '']]},
+ }});
+ assert.equal(view.kind,'records');
+ assert.equal(view.tables[0].rowTags,undefined);
+ assert.equal(view.tables[1].rowTags,undefined);
+});
+
 test('customer note repeats year groups under one matching header without merging changed layouts',()=>{
  const tables=[
   {title:'2025年年报',headers:['客户','金额'],rows:[['第一名','6亿']]},

@@ -2,7 +2,7 @@ import type {EnterpriseModuleData} from './api';
 import {formatAmount,unitPowers} from './financial-view.ts';
 
 export type EnterpriseMatrixRow={key:string;uiKey?:string;label:string;unit:string;definitionUnit?:string;depth:number;section:boolean;bold?:boolean;hasChildren?:boolean;values:unknown[];description?:string|null;formula?:string|null};
-export type EnterpriseRecordTable={title:string;headers:string[];rows:unknown[][];rowLinks?:(string|null)[]};
+export type EnterpriseRecordTable={title:string;headers:string[];rows:unknown[][];rowLinks?:(string|null)[];rowTags?:{company:string[];negative:string[]}[]};
 export type EnterpriseModuleView=
  | {kind:'matrix';periods:string[];rows:EnterpriseMatrixRow[];firstColumnLabel?:string}
  | {kind:'records';tables:EnterpriseRecordTable[]}
@@ -147,19 +147,24 @@ export function buildEnterpriseModuleView(module:EnterpriseModuleData):Enterpris
  const heads=Array.isArray(parsed.head)?parsed.head:[];
  if(heads.length&&Array.isArray(heads[0])){
   const reports=strings(metadata.report);
+  const aligned=(value:unknown)=>Array.isArray(value)&&value.length===heads.length&&value.every((row,index)=>Array.isArray(row)&&row.length===strings(heads[index]).length)?value as unknown[][]:null;
+  const codeGroups=aligned(metadata.itcode),companyGroups=aligned(metadata.companyTag),negativeGroups=aligned(metadata.negativeTag);
   return {kind:'records',tables:heads.map((head,index)=>{
    const labels=strings(head),columns=rowArray(rows[index]);
-   const codes=Array.isArray(metadata.itcode)&&Array.isArray(metadata.itcode[index])?metadata.itcode[index] as unknown[]:null;
+   const codes=codeGroups?.[index],companyTags=companyGroups?.[index],negativeTags=negativeGroups?.[index];
    const links=module.category==='notes'&&codes
     ?labels.slice(1).map((_,row)=>{
      const code=codes[row+1];
      return typeof code==='string'&&/^[A-Fa-f0-9]{32}$/.test(code)
       ?'https://www.qyyjt.cn/detail/enterprise/overview?type=company&code='+code:null;
     }):null;
+   const tags=module.category==='notes'&&(companyTags||negativeTags)
+    ?labels.slice(1).map((_,row)=>({company:strings(companyTags?.[row+1]).filter(Boolean),negative:strings(negativeTags?.[row+1]).filter(Boolean)})):null;
    return {title:enterprisePeriodLabel(reports[index]||String(index+1)),
     headers:[labels[0],...columns.map(column=>String(column[0]??''))],
     rows:labels.slice(1).map((label,i)=>[label,...columns.map(column=>column[i+1])]),
     ...(links?{rowLinks:links}:{}),
+    ...(tags?{rowTags:tags}:{}),
    };
   })};
  }
