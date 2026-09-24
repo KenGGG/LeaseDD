@@ -337,8 +337,8 @@ def create_app(database_url=None, data_dir=None, secure_cookie=True, initialize=
         return task_view(task)
 
     @app.post('/api/projects/{pid}/enterprise/retry')
-    def enterprise_retry(pid:str,user=Depends(admin),db=Depends(session)):
-        admin(user);p=project(db,pid,user,write=True,lock=True)
+    def enterprise_retry(pid:str,user=Depends(current),db=Depends(session)):
+        p=project(db,pid,user,lock=True)
         binding=db.scalar(select(EnterpriseBinding).where(EnterpriseBinding.project_id==pid))
         record=latest_enterprise_import(db,pid)
         if not binding or not record:raise HTTPException(409,'enterprise_import_missing')

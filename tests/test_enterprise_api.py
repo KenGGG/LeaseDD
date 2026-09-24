@@ -160,10 +160,14 @@ def test_permissions_status_data_and_retry_audit(api):
     with app.state.db.begin() as db:
         task = db.scalar(select(Task).where(Task.project_id == pid)); task.state = "completed"
         task.result = {**task.result, "failed_modules": ["module-5"]}
+        db.scalar(select(Member).where(Member.project_id == pid, Member.user_id == writer_id)).role = "reviewer"
     with app.state.db() as db:
-        retry = retry_route(pid, user=db.get(User, admin_id), db=db)
+        retry = retry_route(pid, user=db.get(User, writer_id), db=db)
         assert retry["kind"] == "enterprise_import"
         assert "retry_enterprise_import" in {event.action for event in db.scalars(select(Audit))}
+        with pytest.raises(HTTPException) as denied:
+            retry_route(pid, user=db.get(User, outsider_id), db=db)
+        assert denied.value.status_code == 403
 
 
 def test_readable_enterprise_import_replaces_pdf_statement_view(api):

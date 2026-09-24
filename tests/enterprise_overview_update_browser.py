@@ -46,6 +46,7 @@ with sync_playwright() as playwright:
         elif path.endswith('/section'): data = {'version': 0, 'draft': None, 'current': False, 'input_hash': ''}
         elif path.endswith('/tasks'): data = [state['task']] if state['task'] else []
         elif path.endswith('/enterprise'): data = {'source_type': 'enterprise_warning', 'binding': binding, 'import': state['import']}
+        elif path.endswith('/enterprise/data'): data = {'import_id': state['import']['id'], 'modules': []}
         else: raise AssertionError(path)
         route.fulfill(json=data)
 
@@ -63,6 +64,10 @@ with sync_playwright() as playwright:
     expect(button).to_be_enabled(timeout=8000)
     expect(page.locator('.enterprise-overview-status')).to_contain_text('最近更新')
     assert len(state['posted']) == 1, state['posted']
+    state['import'] = {**state['import'], 'module_status': {'balance_sheet': {'state': 'failed', 'error': 'temporary'}}}
+    page.get_by_role('button', name='财务核对', exact=True).click()
+    page.locator('.enterprise-import-details summary').click()
+    expect(page.get_by_role('button', name='重试失败模块')).to_be_visible()
     assert not errors, errors
     page.screenshot(path='/tmp/leasedd-enterprise-overview-update.png', full_page=True)
     browser.close()
