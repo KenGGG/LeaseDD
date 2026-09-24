@@ -133,22 +133,26 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
     book=Workbook();sheet=book.active
     sheet.title=re.sub(r'[\\/*?:\[\]]','',module.module_name or '财务数据')[:31] or '财务数据'
     sheet.freeze_panes='C3' if source_style else 'B2'
+    analysis_source=source_style and module.category=='analysis'
     for row_index,row in enumerate(output,1):
         for column,value in enumerate(row,1):
             cell=sheet.cell(row_index,column)
-            if source_style and getattr(module,'module_key','')=='main_indicators' and row_index>2 and column>1 and _blank(value):
+            if source_style and (getattr(module,'module_key','')=='main_indicators' or analysis_source) and row_index>2 and column>1 and _blank(value):
                 cell.value=None
                 cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             elif isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
                 prefix='###,###,##0' if getattr(module,'module_key','') in {
                     'restricted_assets','main_business','receivables_top_five','other_receivables_top_five'} else '#,##0'
                 cell.value=value;cell.number_format=(cell_formats or {}).get((row_index,column),prefix+('.'+'0'*decimals if decimals else ''))
+            elif analysis_source and isinstance(value,Decimal) and abs(value)<Decimal('1e15'):
+                cell.value=float(value)
+                cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             elif source_style and column==1 and row_index>2:
                 cell.value=value;cell.number_format='General' if isinstance(value,str) else '0'
             else:
                 cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
                 cell.data_type='s'
-            if (header_unit or getattr(module,'module_key','')=='main_indicators' and source_style) and row_index>2 and column>1 and cell.data_type=='s':
+            if (header_unit or getattr(module,'module_key','')=='main_indicators' and source_style or analysis_source) and row_index>2 and column>1 and cell.data_type=='s':
                 cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             cell.font=Font(name='Microsoft YaHei',size=10,bold=row_index<=(2 if source_style else 1),color='FF4545' if str(value).startswith('-') else '20252C')
             if row_index==1 or row_index%2==0:cell.fill=PatternFill('solid',fgColor='F7FAFF')
@@ -185,6 +189,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
             return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
     output=[];source_numbers=[];cell_formats={}
     source_statement=getattr(module,'module_key','') in {'balance_sheet','income_statement','cash_flow_statement'} and module.category=='statements'
+    source_analysis=module.category=='analysis'
     numeric_flat_note=getattr(module,'module_key','') in {
         'cash_notes','inventory_notes','finance_costs','receivables_aging','prepayments_aging','other_receivables_aging',
         'payables_aging','other_payables_aging','other_receivables_property','advances_aging','nonrecurring_gains_losses'}
@@ -265,7 +270,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
             rows=[{'name':name,'values':[row[i+1] if i+1<len(row) else None for row in rows]} for i,name in enumerate(heads[1:])]
         if periods:
             reports=set(report.split(','));latest=max(map(_order,periods))
-            column_types=next((row.get('values') or [] for row in rows if isinstance(row,dict) and row.get('key') in {'dataType','reportRange'}),[])
+            column_types=next((row.get('values') or [] for row in rows if isinstance(row,dict) and row.get('key',row.get('value')) in {'dataType','reportRange'}),[])
             indices=[i for i,p in enumerate(periods) if (not start or p[:4]>=start) and (not end or p[:4]<=end) and (
                 'all' in reports or _kind(p) in reports or 'latest' in reports and _order(p)==latest or 'quarter' in reports and _kind(p) in {'q1','q3'})]
             indices.sort(key=lambda i:_order(periods[i]),reverse=descending)
@@ -303,7 +308,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                 section=row.get('highlight') or row.get('level') in (0,'0')
                 if hide_empty and not section and all(_blank(value) for value in values):continue
                 label=name
-                if source_unit and not source_statement:
+                if source_unit and not source_statement and not source_analysis:
                     display_unit=unit if source_unit in UNIT_SCALES else '元' if source_unit=='元/股' and getattr(module,'module_key','')=='main_indicators' else source_unit
                     suffix=re.search(r'[（(]([^（）()]+)[）)]$',label)
                     if suffix and suffix[1] in {*UNIT_SCALES,'%','倍','天','元/股'}:
@@ -315,6 +320,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     indent=int(blank[index+1] or 0) if index+1<len(blank) else 0
                     label=' '*(2*indent)+label
                 converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
+                if source_analysis:converted=[None if _blank(value) else value for value in converted]
                 if getattr(module,'module_key','')=='main_indicators' and source_unit in UNIT_SCALES and not trend_key:
                     converted=[value.quantize(Decimal('0.000001'),rounding=ROUND_HALF_UP)
                                if isinstance(value,Decimal) else value for value in converted]
@@ -356,7 +362,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         'cash_notes','inventory_notes','finance_costs','receivables_aging',
         'prepayments_aging','other_receivables_aging','payables_aging','other_payables_aging','advances_aging',
         'other_receivables_property','nonrecurring_gains_losses','restricted_assets','main_business'} and bool(periods)
-    source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or numbered_note)
+    source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements','analysis'} or numbered_note)
     if numbered_record:
         source_style=True
         source_numbers=list(map(str,range(1,len(output))))

@@ -592,9 +592,37 @@ def test_analysis_export_filters_report_range_metadata():
     module=SimpleNamespace(module_name='盈利能力',category='analysis',request_params={},raw_payload={},parsed_payload={
         'periods':['2025年年报','2025年年报'],'rows':[
             {'name':'报表类型','key':'reportRange','values':['合并期末','母公司期末']},
-            {'name':'净利率','key':'ratio','unit':'%','values':['10','8']}]})
+            {'name':'净利率(%)','key':'ratio','unit':'%','values':['10','8']}]})
     book,values=rows(export_enterprise_workbook(module,scopes='母公司期末'))
-    assert values[-1][1:]==(8,)
+    assert values==[
+        ('数据来源：企业预警通',None,None),
+        ('序号','指标名称','2025年年报'),
+        (1,'报表类型','母公司期末'),
+        (2,'净利率(%)',8),
+    ]
+    assert book.active['C4'].data_type=='n'
+    assert book.active['B4'].number_format=='#,##0.00'
+    book.close()
+
+
+def test_analysis_export_keeps_source_numeric_precision_and_blank_cells():
+    module=SimpleNamespace(module_name='偿债能力',category='analysis',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报'],'rows':[
+            {'name':'报表类型','value':'reportRange','values':['合并期末']},
+            {'name':'资本结构','highlight':True,'children':[
+                {'name':'营运资金','unit':'万元','values':['406433.2785330001']},
+                {'name':'无值指标','unit':'%','values':[None]}]}]})
+    book,values=rows(export_enterprise_workbook(module,scopes='合并期末',hide_empty=False))
+    assert values==[
+        ('数据来源：企业预警通',None,None),
+        ('序号','指标名称','2025年年报'),
+        (1,'报表类型','合并期末'),
+        (2,'资本结构',None),
+        (3,'营运资金',406433.2785330001),
+        (4,'无值指标',None),
+    ]
+    assert book.active['C5'].data_type=='n'
+    assert book.active['C6'].number_format=='#,##0.00'
     book.close()
 
 
