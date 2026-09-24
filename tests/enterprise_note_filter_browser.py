@@ -280,6 +280,42 @@ def test_special_notes_omit_source_absent_hide_empty_control(monkeypatch, module
         browser.close()
 
 
+@pytest.mark.parametrize('module_key,module_name,parent', [
+    ('payables_aging', '应付账款账龄分析', '应付账款'),
+    ('other_payables_aging', '其他应付款账龄分析', '其他应付款'),
+    ('other_receivables_property', '按款项性质分类', '其他应收款'),
+])
+def test_source_verified_note_menus_have_no_extra_periods_sort_or_confirm(monkeypatch, module_key, module_name, parent):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': module_key, 'module_name': module_name, 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'f' * 64,
+        'request_params': {'menu_parent': parent}, 'raw_payload': {},
+        'parsed_payload': {'head': ['账龄', '1年内'], 'rows': [
+            ['20250630', '2.69万'], ['20241231', '1.25万']], 'metadata': {}},
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1280, 'height': 720})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='⊞ '+parent).click()
+        page.get_by_role('button', name=module_name, exact=True).click()
+        table = page.locator('.enterprise-source-table')
+        table.wait_for()
+        assert page.get_by_role('button', name='报告期倒序').count() == 0
+        assert page.locator('.enterprise-reference-tools').get_by_text('隐藏空行').count() == 1
+        select = page.locator('details.reference-select').first
+        select.locator('.reference-select-arrow').click()
+        assert select.locator('.reference-select-options label').all_inner_texts() == ['最新', '年报', '中报']
+        assert select.locator('.reference-select-options').get_by_role('button', name='确定').count() == 0
+        select.locator('.reference-select-options label').filter(has_text='最新').locator('input').uncheck()
+        assert table.locator('thead th').nth(1).inner_text() == '2024年年报'
+        browser.close()
+
+
 def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeypatch):
     monkeypatch.setattr(__import__(__name__), 'MODULE', {
         'module_key': 'cash_notes', 'module_name': '货币资金', 'category': 'notes',
