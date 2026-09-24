@@ -126,9 +126,10 @@ def _statement_trend_output(module, periods, rows, key, report, start, end, wind
     return output
 
 
-def _workbook_bytes(module, output, source_style, decimals):
+def _workbook_bytes(module, output, source_style, decimals, *, source_label='指标名称', row_numbers=None):
     if source_style:
-        output=[['数据来源：企业预警通'],['序号','指标名称',*output[0][1:]],*[[index,*row] for index,row in enumerate(output[1:],1)]]
+        numbers=row_numbers if row_numbers is not None else range(1,len(output))
+        output=[['数据来源：企业预警通'],['序号',source_label,*output[0][1:]],*[[number,*row] for number,row in zip(numbers,output[1:])]]
     book=Workbook();sheet=book.active
     sheet.title=re.sub(r'[\\/*?:\[\]]','',module.module_name or '财务数据')[:31] or '财务数据'
     sheet.freeze_panes='C3' if source_style else 'B2'
@@ -172,7 +173,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         hide_empty=False
         if statement_trend:
             return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
-    output=[]
+    output=[];source_numbers=[]
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
         precise_record=metadata.get('precise_record') is True
@@ -242,6 +243,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                         label=label[:suffix.start()]+'（'+display_unit+'）'
                     else:label+='（'+display_unit+'）'
                 output.append([label,*[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]])
+                source_numbers.append(index+1)
         elif heads:output=[heads,*rows]
         else:output=[['企业预警通该栏目暂无数据' if metadata.get('empty') else '当前栏目数据尚待核对']]
     if trend_key:
@@ -257,5 +259,8 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if len(unique_currencies)>1:
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
-    source_style=not trend_key and module.category in {'indicators','statements'} and bool(periods)
-    return _workbook_bytes(module,output,source_style,decimals)
+    cash_note=getattr(module,'module_key','')=='cash_notes' and bool(periods)
+    source_style=not trend_key and bool(periods) and (module.category in {'indicators','statements'} or cash_note)
+    return _workbook_bytes(module,output,source_style,decimals,
+                           source_label='项目名称' if cash_note else '指标名称',
+                           row_numbers=source_numbers if cash_note else None)

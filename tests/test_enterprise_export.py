@@ -254,13 +254,19 @@ def test_excel_precision_guard_does_not_round_before_counting_digits():
     book.close()
 
 
-def test_export_transposes_note_periods_and_keeps_source_formatted_amounts():
-    module = SimpleNamespace(module_name='货币资金', category='notes', request_params={}, raw_payload={},
-        parsed_payload={'head':['项目名称','现金','银行存款','合计'], 'rows':[
-            ['20260630','2.87万','','32.29亿'],['20251231','1.83万','0','19.19亿'],
+def test_cash_note_export_keeps_source_rows_and_excel_numbering():
+    module = SimpleNamespace(module_key='cash_notes',module_name='货币资金', category='notes', request_params={}, raw_payload={},
+        parsed_payload={'head':['项目名称','现金','银行存款','财务公司存款','其他货币资金','合计'], 'rows':[
+            ['20260630','2.87万','15.73亿','','16.57亿','32.29亿'],
+            ['20251231','1.83万','7.39亿','','11.80亿','19.19亿'],
         ], 'metadata':{}})
     book, values = rows(export_enterprise_workbook(module))
-    assert values == [('报告期','2026年中报','2025年年报'),('现金','2.87万','1.83万'),('银行存款',None,'0'),('合计','32.29亿','19.19亿')]
+    assert values == [('数据来源：企业预警通',None,None,None),
+                      ('序号','项目名称','2026年中报','2025年年报'),
+                      (1,'现金','2.87万','1.83万'),
+                      (2,'银行存款','15.73亿','7.39亿'),
+                      (4,'其他货币资金','16.57亿','11.80亿'),
+                      (5,'合计','32.29亿','19.19亿')]
     book.close()
 
 
