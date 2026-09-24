@@ -30,9 +30,9 @@ const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['
 const sourceNoSortNotes=new Set(['audit_report','receivables_aging','other_receivables_aging','prepayments_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
 function ReportSelect({value,onChange,label='报告期',options=reportOptions}:{value:string;onChange:(value:string)=>void;label?:string;options?:string[][]}){
  const selected=value.split(',');
- const labels=options.filter(([key])=>selected.includes(key)).map(([,label])=>label);
+ const chosen=options.filter(([key])=>selected.includes(key));
  return <div className="reference-report"><span>{label}</span><details className="reference-select">
-  <summary aria-label={label+'筛选'}>{labels.join(',')||'请选择'} <span>▾</span></summary>
+  <summary aria-label={label+'筛选'}><span className="reference-selected">{chosen.length?chosen.map(([key,text])=><span className="reference-chip" key={key}>{text}<button type="button" aria-label={'移除'+text+'筛选'} onClick={event=>{event.preventDefault();event.stopPropagation();onChange(selected.filter(item=>item!==key).join(','))}}>×</button></span>):'请选择'}</span><span className="reference-select-arrow">▾</span></summary>
   <div className="reference-select-options">{options.map(([key,label])=><label key={key}><input type="checkbox" checked={selected.includes(key)} onChange={event=>{
    if(key==='all'){onChange(event.target.checked?'all':'');return}
    const next=new Set(selected.filter(item=>item&&item!=='all'));event.target.checked?next.add(key):next.delete(key);onChange([...next].join(','));

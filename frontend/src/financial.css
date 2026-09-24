@@ -200,9 +200,12 @@
 .reference-link{border:0;background:none;color:#1677ff;cursor:pointer}
 .reference-report{display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap}
 .reference-select{position:relative;z-index:8;min-width:90px}
-.reference-select summary{list-style:none;border:1px solid #cadcf3;padding:3px 7px;color:#344152;cursor:pointer;font-size:13px;background:#fff}
+.reference-select summary{list-style:none;border:1px solid #cadcf3;padding:3px 7px;color:#344152;cursor:pointer;font-size:13px;background:#fff;display:flex;align-items:center;gap:5px}
 .reference-select summary::-webkit-details-marker{display:none}
-.reference-select summary>span{color:#1677ff;margin-left:8px}
+.reference-select .reference-selected{display:flex;align-items:center;gap:3px;max-width:170px;overflow:hidden}
+.reference-select .reference-chip{display:inline-flex;align-items:center;gap:3px;padding:0 3px;background:#f4f7fb;white-space:nowrap;color:#344152}
+.reference-select .reference-chip button{border:0;padding:0;background:none;color:#7a8492;cursor:pointer;font-size:13px;line-height:1}
+.reference-select .reference-select-arrow{color:#1677ff}
 .reference-select-options{position:absolute;top:100%;left:0;min-width:140px;padding:8px;background:white;border:1px solid #dce5ef;box-shadow:0 4px 12px #243b5320}
 .enterprise-reference .reference-select-options label{display:flex;margin:0;padding:5px;font-size:13px;cursor:pointer}
 .reference-select-options input{width:14px;height:14px;margin:0;accent-color:#087dff}

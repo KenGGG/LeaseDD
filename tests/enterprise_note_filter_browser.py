@@ -230,6 +230,9 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         assert fifth_period['x'] + fifth_period['width'] <= right + 2
         assert sixth_period['x'] >= right - 2
         page.screenshot(path='/tmp/leasedd-cash-notes-width-fixture.png', full_page=False)
+        page.get_by_role('button', name='移除最新筛选').click()
+        assert table.locator('thead th').nth(1).inner_text() == '2025年年报'
+        assert table.locator('thead th').filter(has_text='2026年中报').count() == 0
         browser.close()
 
 
