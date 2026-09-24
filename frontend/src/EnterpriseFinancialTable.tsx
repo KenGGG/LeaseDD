@@ -85,7 +85,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
   }catch(error){setExportError(error instanceof Error?error.message:'Excel 导出失败，请重试。')}finally{setExporting(false)}
  }
  function toggleRow(key:string){setCollapsedRows(previous=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next})}
- return <div className="enterprise-financial-view enterprise-reference">
+ return <div className={'enterprise-financial-view enterprise-reference enterprise-reference-'+module.category}>
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
   {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；请由管理员重新导入。</p>}
   <div className="enterprise-reference-toolbar">

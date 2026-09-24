@@ -421,5 +421,7 @@
  .enterprise-reference .finance-matrix td,.enterprise-reference .finance-matrix th{height:32px;min-width:130px;padding-right:12px}
  .enterprise-reference .finance-matrix thead th{font-size:13px;padding:7px 10px}
  .enterprise-reference .enterprise-source-table .finance-matrix th:first-child{min-width:245px;max-width:245px}
+ .enterprise-reference-notes .enterprise-source-table .finance-matrix th:first-child{min-width:320px;max-width:320px}
+ .enterprise-reference-notes .enterprise-source-table .finance-matrix td,.enterprise-reference-notes .enterprise-source-table .finance-matrix thead th:not(:first-child){min-width:146px}
  .enterprise-reference .enterprise-source-table,.enterprise-reference .enterprise-record-table{margin:0 10px 10px;max-height:calc(100vh - 200px)}
 }

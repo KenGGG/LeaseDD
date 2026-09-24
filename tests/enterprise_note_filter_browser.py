@@ -187,3 +187,46 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
         book.close()
         page.screenshot(path='/tmp/leasedd-per-share-toolbar-fixture.png', full_page=False)
         browser.close()
+
+
+def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'cash_notes', 'module_name': '货币资金', 'category': 'notes',
+        'state': 'completed', 'response_sha256': 'd' * 64,
+        'request_params': {'child_type': 'notes_MonetaryResources'}, 'raw_payload': {},
+        'parsed_payload': {
+            'head': ['项目名称', '现金', '银行存款', '财务公司存款', '其他货币资金', '合计'],
+            'rows': [
+                ['20260630', '2.87万', '15.73亿', '', '16.57亿', '32.29亿'],
+                ['20251231', '1.83万', '7.39亿', '', '11.80亿', '19.19亿'],
+                ['20241231', '2.39万', '19.58亿', '', '10.78亿', '30.36亿'],
+                ['20231231', '8.78万', '20.40亿', '', '8.24亿', '28.64亿'],
+                ['20221231', '6.47万', '22.81亿', '', '12.32亿', '35.13亿'],
+                ['20211231', '7.90万', '12.63亿', '', '6.03亿', '18.66亿'],
+            ],
+            'metadata': {'leftTreeShow': True},
+        },
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1280, 'height': 720})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='货币资金', exact=True).click()
+        table = page.locator('.enterprise-source-table')
+        table.wait_for()
+        assert table.locator('tbody tr').count() == 4
+        assert '2.87万' in table.locator('tbody tr').first.inner_text()
+        assert '15.73亿' in table.locator('tbody tr').nth(1).inner_text()
+        first_col = table.locator('thead th').first.bounding_box()
+        fifth_period = table.locator('thead th').nth(5).bounding_box()
+        sixth_period = table.locator('thead th').nth(6).bounding_box()
+        right = table.bounding_box()['x'] + table.bounding_box()['width']
+        assert 300 <= first_col['width'] <= 330
+        assert fifth_period['x'] + fifth_period['width'] <= right + 2
+        assert sixth_period['x'] >= right - 2
+        page.screenshot(path='/tmp/leasedd-cash-notes-width-fixture.png', full_page=False)
+        browser.close()
