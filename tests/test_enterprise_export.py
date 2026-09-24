@@ -518,7 +518,7 @@ def test_inventory_note_export_retains_source_numbers_and_numeric_cells_with_dis
     book.close()
 
 
-def test_finance_cost_note_export_uses_verified_source_header_and_original_numbering():
+def test_finance_cost_note_export_keeps_source_numbering_and_numeric_cells_with_disclosed_units():
     module = SimpleNamespace(module_key='finance_costs', module_name='财务费用', category='notes', request_params={}, raw_payload={},
         parsed_payload={'head':['项目名称','利息支出','减：资本化利息支出','减：利息收入','合计'], 'rows':[
             ['20260630','1.22亿','','-654.91万','1.27亿'],
@@ -527,9 +527,13 @@ def test_finance_cost_note_export_uses_verified_source_header_and_original_numbe
     book, values = rows(export_enterprise_workbook(module, report='latest,annual'))
     assert values == [('数据来源：企业预警通',None,None,None),
                       ('序号','项目名称','2026年中报','2025年年报'),
-                      ('1','利息支出','1.22亿','2.00亿'),
-                      ('3','减：利息收入','-654.91万','-600.00万'),
-                      ('4','合计','1.27亿','2.06亿')]
+                      ('1','利息支出',1.22,2),
+                      ('3','减：利息收入',-654.91,-600),
+                      ('4','合计',1.27,2.06)]
+    assert book.active['C3'].data_type == 'n'
+    assert book.active['C3'].number_format == '###,###,##0.00"亿"'
+    assert book.active['C4'].data_type == 'n'
+    assert book.active['C4'].number_format == '###,###,##0.00"万"'
     book.close()
 
 
