@@ -253,6 +253,10 @@ def test_cash_notes_preserve_source_values_and_five_period_reading_width(monkeyp
         assert '2.87万' in table.locator('tbody tr').first.inner_text()
         assert '15.73亿' in table.locator('tbody tr').nth(1).inner_text()
         first_col = table.locator('thead th').first.bounding_box()
+        first_header_style = table.locator('thead th').first.evaluate('(element) => ({color:getComputedStyle(element).color,align:getComputedStyle(element).textAlign,padding:getComputedStyle(element).paddingLeft})')
+        assert first_header_style['align'] == 'left'
+        assert first_header_style['color'] == 'rgb(255, 122, 26)'
+        assert float(first_header_style['padding'].replace('px', '')) >= 24
         fifth_period = table.locator('thead th').nth(5).bounding_box()
         sixth_period = table.locator('thead th').nth(6).bounding_box()
         right = table.bounding_box()['x'] + table.bounding_box()['width']
@@ -325,6 +329,10 @@ def test_major_customer_record_columns_and_export_match_source_reading_area(monk
         table = page.locator('.enterprise-record-table .finance-matrix')
         table.wait_for()
         widths = [cell.bounding_box()['width'] for cell in table.locator('thead th').all()]
+        header_style = table.locator('thead th').first.evaluate('(element) => ({color:getComputedStyle(element).color,align:getComputedStyle(element).textAlign})')
+        assert header_style == {'color':'rgb(255, 122, 26)', 'align':'left'}
+        section_weight = table.locator('tbody .enterprise-section-row th').first.evaluate('(element) => getComputedStyle(element).fontWeight')
+        assert section_weight == '400'
         assert 300 <= widths[0] <= 340
         assert 120 <= widths[1] <= 170
         assert 120 <= widths[2] <= 170

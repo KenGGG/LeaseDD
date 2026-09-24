@@ -429,6 +429,8 @@
  .enterprise-reference .enterprise-source-table,.enterprise-reference .enterprise-record-table{margin:0 10px 10px;max-height:calc(100vh - 200px)}
 }
 @media(min-width:1250px){
+ .enterprise-reference-notes .finance-matrix thead th:first-child{color:#ff7a1a;text-align:left;padding-left:30px}
+ .enterprise-reference-records .finance-matrix tbody .enterprise-section-row th{font-weight:400}
  .enterprise-reference-records{position:relative}
  .enterprise-reference-records .enterprise-reference-toolbar{position:absolute;top:10px;right:12px}
  .enterprise-reference-records .enterprise-record-table{margin-top:5px}
