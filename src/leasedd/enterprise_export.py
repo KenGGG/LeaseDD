@@ -177,7 +177,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
             return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
     output=[];source_numbers=[];cell_formats={}
     numeric_flat_note=getattr(module,'module_key','') in {
-        'cash_notes','receivables_aging','prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'}
+        'cash_notes','inventory_notes','receivables_aging','prepayments_aging','other_receivables_aging','nonrecurring_gains_losses'}
     impairment_record=bool(heads and isinstance(heads[0],list) and getattr(module,'module_key','') in {
         'receivables_impairment','other_receivables_impairment'})
     precise_top_five=bool(heads and isinstance(heads[0],list) and metadata.get('precise_record') is True and

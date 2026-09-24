@@ -500,7 +500,7 @@ def test_cash_note_export_keeps_source_numbering_and_numeric_cells_with_disclose
     book.close()
 
 
-def test_inventory_note_export_retains_source_row_numbers_across_hidden_rows():
+def test_inventory_note_export_retains_source_numbers_and_numeric_cells_with_disclosed_units():
     module = SimpleNamespace(module_key='inventory_notes', module_name='存货', category='notes', request_params={}, raw_payload={},
         parsed_payload={'head':['项目名称','原材料','期末余额','采购商品','账面价值合计'], 'rows':[
             ['20260630','7.88亿','7.91亿','','27.06亿'],
@@ -509,10 +509,12 @@ def test_inventory_note_export_retains_source_row_numbers_across_hidden_rows():
     book, values = rows(export_enterprise_workbook(module, report='latest,annual'))
     assert values == [('数据来源：企业预警通',None,None,None),
                       ('序号','项目名称','2026年中报','2025年年报'),
-                      ('1','原材料','7.88亿','3.23亿'),
-                      ('2','期末余额','7.91亿','3.26亿'),
-                      ('4','账面价值合计','27.06亿','26.00亿')]
+                      ('1','原材料',7.88,3.23),
+                      ('2','期末余额',7.91,3.26),
+                      ('4','账面价值合计',27.06,26)]
     assert book.active['A3'].data_type == 's'
+    assert book.active['C3'].data_type == 'n'
+    assert book.active['C3'].number_format == '###,###,##0.00"亿"'
     book.close()
 
 
