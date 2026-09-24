@@ -269,6 +269,11 @@ def test_main_indicator_report_selection_waits_for_confirm(monkeypatch):
         expect(table.locator('thead th')).to_have_count(3)
         report.get_by_role('button', name='确定').click()
         expect(table.locator('thead th')).to_have_count(2)
+        report.locator('.reference-select-arrow').click()
+        report.get_by_role('button', name='重置').click()
+        expect(table.locator('thead th')).to_have_count(2)
+        report.get_by_role('button', name='确定').click()
+        expect(table.locator('thead th')).to_have_count(3)
         browser.close()
 
 

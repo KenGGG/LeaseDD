@@ -29,7 +29,7 @@ function IndicatorHelp({row}:{row:EnterpriseMatrixRow}){
 const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['q3','三季报'],['half','中报'],['q1','一季报']];
 const sourceNoSortNotes=new Set(['audit_report','receivables_aging','other_receivables_aging','prepayments_aging',
  'payables_aging','other_payables_aging','other_receivables_property','advances_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
-function ReportSelect({value,onChange,label='报告期',options=reportOptions,confirm=true}:{value:string;onChange:(value:string)=>void;label?:string;options?:string[][];confirm?:boolean}){
+function ReportSelect({value,onChange,label='报告期',options=reportOptions,confirm=true,resetValue}:{value:string;onChange:(value:string)=>void;label?:string;options?:string[][];confirm?:boolean;resetValue?:string}){
  const [draft,setDraft]=useState(value);
  const selected=(confirm?draft:value).split(',');
  const chosen=options.filter(([key])=>value.split(',').includes(key));
@@ -39,7 +39,7 @@ function ReportSelect({value,onChange,label='报告期',options=reportOptions,co
   <div className="reference-select-options">{options.map(([key,label])=><label key={key}><input type="checkbox" checked={selected.includes(key)} onChange={event=>{
    if(key==='all'){select(event.target.checked?'all':'');return}
    const next=new Set(selected.filter(item=>item&&item!=='all'));event.target.checked?next.add(key):next.delete(key);select([...next].join(','));
-  }}/>{label}</label>)}{confirm&&<button onClick={event=>{onChange(draft);const details=event.currentTarget.closest('details');if(details)details.open=false}}>确定</button>}</div>
+  }}/>{label}</label>)}{confirm&&resetValue!==undefined&&<button onClick={()=>setDraft(resetValue)}>重置</button>}{confirm&&<button onClick={event=>{onChange(draft);const details=event.currentTarget.closest('details');if(details)details.open=false}}>确定</button>}</div>
  </details></div>;
 }
 
@@ -97,7 +97,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
   {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；项目成员可在项目概览点击“企业预警通更新数据”重新导入。</p>}
   <div className="enterprise-reference-toolbar">
   {!filtersHidden&&periodControls&&<div className="enterprise-reference-filters">
-   <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)} confirm={!sourceNoSortNotes.has(module.module_key)}/>
+   <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)} confirm={!sourceNoSortNotes.has(module.module_key)} resetValue={module.module_key==='main_indicators'?'latest,annual,q3':undefined}/>
    {(toolbar.yearsAndUnit||original.kind==='records')&&<>
     <div className="reference-years"><span>年度</span>{[3,5,10].map(n=><button key={n} aria-pressed={windowYears===n} onClick={()=>{setWindowYears(n);setStart('');setEnd('')}}>{n}Y</button>)}<select aria-label="起始年度" value={start} onChange={e=>{setWindowYears(0);setStart(e.target.value)}}><option value="">起始</option>{years.map(y=><option key={y}>{y}</option>)}</select><span>至</span><select aria-label="结束年度" value={end} onChange={e=>{setWindowYears(0);setEnd(e.target.value)}}><option value="">结束</option>{years.map(y=><option key={y}>{y}</option>)}</select><button onClick={()=>{setWindowYears(0);setStart('');setEnd('')}}>全部</button></div>
     {(main||module.category==='analysis')&&scopeOptions.length>1&&<ReportSelect label={main?'报表类型':'合并类型'} value={scopes} onChange={setScopes} options={scopeOptions}/>}
