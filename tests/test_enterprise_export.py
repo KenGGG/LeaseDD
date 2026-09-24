@@ -202,6 +202,26 @@ def test_impairment_record_excel_keeps_source_serial_amounts_and_aligned_tags():
     book.close()
 
 
+def test_other_impairment_excel_uses_only_source_company_tag_column():
+    module=SimpleNamespace(module_key='other_receivables_impairment',module_name='计提坏账的重大其他应收款',category='notes',
+                           request_params={},raw_payload={},parsed_payload={
+        'head':[['单位名称','广东科萝机械设备有限公司','成都兆雄智能设备有限公司','合计']],
+        'rows':[[['账面余额','2.30万','281.56万','283.86万'],
+                 ['坏账准备','2.30万','281.56万','283.86万'],['账面价值','-','-','-']]],
+        'metadata':{'report':['20260630'],'companyTag':[['',[],['民企'],[]]]}})
+    book,values=rows(export_enterprise_workbook(module))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None,None,None),
+        ('序号','单位名称','账面余额','坏账准备','账面价值','企业类型标签'),
+        ('1','2026年中报',None,None,None,None),
+        ('2','广东科萝机械设备有限公司',2.3,2.3,None,None),
+        ('3','成都兆雄智能设备有限公司',281.56,281.56,None,'民企'),
+        ('4','合计',283.86,283.86,None,None)]
+    assert book.active['C4'].number_format=='###,###,##0.00"万"'
+    assert book.active['A4'].data_type=='s'
+    book.close()
+
+
 def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units():
     module = SimpleNamespace(module_name='资产负债表', category='statements', request_params={}, raw_payload={},
         parsed_payload={'periods':['2026年中报','2025年年报','2024年年报'], 'rows':[
