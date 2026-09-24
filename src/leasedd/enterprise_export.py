@@ -126,7 +126,7 @@ def _statement_trend_output(module, periods, rows, key, report, start, end, wind
     return output
 
 
-def _workbook_bytes(module, output, source_style, decimals, *, source_label='指标名称', row_numbers=None, cell_formats=None):
+def _workbook_bytes(module, output, source_style, decimals, *, source_label='指标名称', row_numbers=None, cell_formats=None, header_unit=None):
     if source_style:
         numbers=row_numbers if row_numbers is not None else range(1,len(output))
         output=[['数据来源：企业预警通'],['序号',source_label,*output[0][1:]],*[[number,*row] for number,row in zip(numbers,output[1:])]]
@@ -145,13 +145,18 @@ def _workbook_bytes(module, output, source_style, decimals, *, source_label='指
             else:
                 cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
                 cell.data_type='s'
+            if header_unit and row_index>2 and column>1 and cell.data_type=='s':
+                cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
             cell.font=Font(name='Microsoft YaHei',size=10,bold=row_index<=(2 if source_style else 1),color='FF4545' if str(value).startswith('-') else '20252C')
             if row_index==1 or row_index%2==0:cell.fill=PatternFill('solid',fgColor='F7FAFF')
     for column in range(1,sheet.max_column+1):sheet.column_dimensions[get_column_letter(column)].width=20
     sheet.column_dimensions['B' if source_style else 'A'].width=34
     if source_style:
         sheet.column_dimensions['A'].width=8
-        sheet.merge_cells(start_row=1,start_column=1,end_row=1,end_column=sheet.max_column)
+        if header_unit:
+            sheet.cell(1,sheet.max_column).value='单位：'+header_unit
+        else:
+            sheet.merge_cells(start_row=1,start_column=1,end_row=1,end_column=sheet.max_column)
     content=BytesIO();book.save(content);book.close()
     return content.getvalue()
 
@@ -176,6 +181,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
         if statement_trend:
             return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
     output=[];source_numbers=[];cell_formats={}
+    source_statement=getattr(module,'module_key','') in {'balance_sheet','income_statement','cash_flow_statement'} and module.category=='statements'
     numeric_flat_note=getattr(module,'module_key','') in {
         'cash_notes','inventory_notes','finance_costs','receivables_aging','prepayments_aging','other_receivables_aging',
         'payables_aging','other_payables_aging','other_receivables_property','advances_aging','nonrecurring_gains_losses'}
@@ -294,7 +300,7 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                 section=row.get('highlight') or row.get('level') in (0,'0')
                 if hide_empty and not section and all(_blank(value) for value in values):continue
                 label=name
-                if source_unit:
+                if source_unit and not source_statement:
                     display_unit=unit if source_unit in UNIT_SCALES else source_unit
                     suffix=re.search(r'[（(]([^（）()]+)[）)]$',label)
                     if suffix and suffix[1] in {*UNIT_SCALES,'%','倍','天','元/股'}:
@@ -306,6 +312,10 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
                     indent=int(blank[index+1] or 0) if index+1<len(blank) else 0
                     label=' '*(2*indent)+label
                 converted=[_amount(value,'%' if source_unit in UNIT_SCALES and i<len(column_types) and (re.search(r'[%％]',str(column_types[i])) or column_types[i] in {'同比','占收入比'}) else source_unit,unit,decimals) for value,i in zip(values,indices)]
+                if source_statement and row.get('key')=='conversionRate':
+                    converted=[Decimal(str(value)) if re.fullmatch(r'-?\d+(?:\.\d+)?',str(value)) else value for value in converted]
+                if source_statement and row.get('key')=='dataSource':
+                    converted=[re.split(r'__https?://',str(value),maxsplit=1)[0] for value in converted]
                 if getattr(module,'module_key','')=='main_business' and row.get('key')=='conversionRate':
                     for position,value in enumerate(converted):
                         if re.fullmatch(r'-?\d+(?:\.\d+)?',str(value)):
@@ -347,4 +357,4 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
     return _workbook_bytes(module,output,source_style,decimals,
                            source_label=str(heads[0][0]) if numbered_record else '报告期' if restricted else str(heads[0]) if numbered_note and numeric_flat_note else '项目名称' if numbered_note else '指标名称',
                            row_numbers=source_numbers if numbered_record else list(map(str,range(1,len(output)))) if restricted else [str(number) for number in source_numbers] if numbered_note else None,
-                           cell_formats=cell_formats)
+                           cell_formats=cell_formats,header_unit=unit if source_statement else None)

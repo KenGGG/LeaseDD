@@ -514,6 +514,35 @@ def test_export_is_real_xlsx_and_uses_selected_periods_and_exact_display_units()
     book.close()
 
 
+def test_source_statement_excel_keeps_original_labels_header_unit_and_text_source():
+    module=SimpleNamespace(module_key='balance_sheet',module_name='资产负债表',category='statements',
+                           request_params={},raw_payload={},parsed_payload={
+        'periods':['2026年中报','2025年年报'],
+        'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末','合并期末']},
+            {'key':'moneyFunds','name':'货币资金','unit':'万元','values':['322934.96','191893.87']},
+            {'key':'conversionRate','name':'转换汇率','values':['1','1']},
+            {'key':'dataSource','name':'数据来源','values':[
+                '中报__https://example.com/2026.pdf','年报__https://example.com/2025.pdf']}],
+        'metadata':{'headExport':['指标名称','报表类型','货币资金（万元）','转换汇率','数据来源']}})
+    original=str(module.parsed_payload)
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual',scopes='合并期末',
+                                                data_kinds='原始报表',unit='万元'))
+    assert values==[
+        ('数据来源：企业预警通',None,None,'单位：万元'),
+        ('序号','指标名称','2026年中报','2025年年报'),
+        (1,'报表类型','合并期末','合并期末'),
+        (2,'货币资金',322934.96,191893.87),
+        (3,'转换汇率',1,1),
+        (4,'数据来源','中报','年报')]
+    assert not book.active.merged_cells.ranges
+    assert book.active['C5'].data_type=='n'
+    assert book.active['B3'].number_format=='#,##0.00'
+    assert book.active['C3'].number_format=='#,##0.00'
+    assert str(module.parsed_payload)==original
+    book.close()
+
+
 def test_mixed_percentage_columns_are_not_scaled_by_amount_unit():
     module=SimpleNamespace(module_name='资产负债表',category='statements',request_params={},raw_payload={},parsed_payload={
         'periods':['2025年年报','2025年年报'],'rows':[
