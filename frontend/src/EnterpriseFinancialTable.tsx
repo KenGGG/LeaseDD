@@ -87,6 +87,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  return <div className="enterprise-financial-view enterprise-reference">
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
   {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；请由管理员重新导入。</p>}
+  <div className="enterprise-reference-toolbar">
   {!filtersHidden&&periodControls&&<div className="enterprise-reference-filters">
    <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)}/>
    {(toolbar.yearsAndUnit||original.kind==='records')&&<>
@@ -99,6 +100,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
    </>}
   </div>}
   <div className="enterprise-reference-tools">{periodControls&&<><button onClick={()=>setDescending(!descending)}>报告期{descending?'倒序 ↓':'正序 ↑'}</button>{original.kind==='matrix'&&<label><input type="checkbox" checked={hideEmpty} onChange={e=>setHideEmpty(e.target.checked)}/>隐藏空行</label>}</>}<button className="reference-export" disabled={view.kind==='empty'||exporting} onClick={exportExcel}>{exporting?'正在导出…':'导出Excel'}</button></div>
+  </div>
   {exportError&&<p role="alert" className="finance-pending">{exportError}</p>}
   {view.kind==='matrix'?<div className="finance-table-scroll enterprise-source-table" tabIndex={0} aria-label={module.module_name+'原始数据表'}>
    <table className="finance-matrix"><thead><tr><th>{module.category==='notes'?'项目名称':module.category==='analysis'?'指标名称':'报告期'}</th>{view.periods.map((period,index)=>{const source=enterpriseSourceLink(sources[index]);return <th key={period+index}>{period}{source&&<a className="enterprise-pdf-link" href={source.href} target="_blank" rel="noopener noreferrer" aria-label={'查看'+period+'原始报告'}>PDF</a>}</th>})}</tr></thead><tbody>

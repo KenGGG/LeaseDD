@@ -99,7 +99,7 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         browser.close()
 
 
-def test_desktop_financial_table_keeps_source_readable_density(monkeypatch):
+def test_desktop_financial_table_matches_source_reading_area(monkeypatch):
     periods = ["2026年中报", "2025年年报", "2025年三季报", "2024年年报",
                "2024年三季报", "2023年年报", "2023年三季报"]
     monkeypatch.setattr(
@@ -127,9 +127,17 @@ def test_desktop_financial_table_keeps_source_readable_density(monkeypatch):
         nav_width = page.locator(".enterprise-workspace .finance-nav").bounding_box()["width"]
         row_height = first_row.bounding_box()["height"]
         table = page.locator(".enterprise-source-table")
-        overflow = table.evaluate("element => element.scrollWidth > element.clientWidth")
-        assert nav_width >= 280
-        assert row_height >= 44
-        assert overflow
+        table_box = table.bounding_box()
+        seventh_period = table.locator('thead th').nth(7).bounding_box()
+        filters = page.locator('.enterprise-reference-filters').bounding_box()
+        tools = page.locator('.enterprise-reference-tools').bounding_box()
+        assert 200 <= nav_width <= 245
+        assert 30 <= row_height <= 40
+        assert abs(filters['y'] - tools['y']) <= 4
+        assert table_box['y'] <= 200
+        assert seventh_period['x'] + seventh_period['width'] <= table_box['x'] + table_box['width'] + 2
+        assert not page.locator('.finance-page .project-title').is_visible()
+        assert '附注测试项目' in page.locator('.finance-mode .breadcrumb').inner_text()
         assert page.locator("body").evaluate("element => element.scrollWidth") <= 2048
+        page.screenshot(path='/tmp/leasedd-main-toolbar-fixture.png', full_page=True)
         browser.close()
