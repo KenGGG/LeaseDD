@@ -30,6 +30,40 @@ def test_indicator_trend_export_rejects_unknown_rows_and_ambiguous_scope():
             export_enterprise_workbook(module,**options)
 
 
+def test_balance_trend_excel_uses_disclosed_ratio_columns_not_asset_amount():
+    module=SimpleNamespace(module_key='balance_sheet',module_name='资产负债表',category='statements',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报']*6,'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末','合并期末较年初比(%)','合并期末同比(%)','合并期末销售比(%)','合并期末资产比(%)','合并期末环比(%)']},
+            {'key':'110050','name':'资产总计','unit':'万元','values':['1681573.338932','-5.576781','-5.576781','192.918580','100','-0.536379']}]})
+    book,values=rows(export_enterprise_workbook(module,trend_key='110050',report='annual',scopes='合并期末'))
+    assert values[0]==('序号','报告期','资产总计(%)','同比增长率(%)','销售百分比(%)','资产百分比(%)','环比增长率(%)')
+    assert values[1]==('1','2025年年报',-5.576781,-5.576781,192.91858,100,-0.536379)
+    book.close()
+
+
+def test_income_trend_excel_keeps_amount_unit_and_source_ratios():
+    module=SimpleNamespace(module_key='income_statement',module_name='利润表',category='statements',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报']*3,'rows':[
+            {'key':'dataType','name':'报表类型','values':['合并期末','合并期末同比(%)','合并期末销售比(%)']},
+            {'key':'displayCurrency','name':'币种','values':['人民币']*3},
+            {'key':'120050','name':'营业收入','unit':'万元','values':['871649.239191','14.495727',None]}]})
+    book,values=rows(export_enterprise_workbook(module,trend_key='120050',report='annual',scopes='合并期末',unit='亿元'))
+    assert values[0]==('序号','报告期','营业收入（亿元人民币）','同比增长率(%)','销售百分比(%)')
+    assert values[1]==('1','2025年年报',87.1649239191,14.495727,None)
+    book.close()
+
+
+def test_statement_trend_export_rejects_ambiguous_accounting_key():
+    import pytest
+    module=SimpleNamespace(module_key='cash_flow_statement',module_name='现金流量表',category='statements',request_params={},raw_payload={},parsed_payload={
+        'periods':['2025年年报'],'rows':[
+            {'key':'dataType','values':['合并期末']},
+            {'key':'130065','name':'主表项目','values':['1']},
+            {'key':'130065','name':'补充披露','values':['2']}]})
+    with pytest.raises(ValueError,match='invalid_trend_options'):
+        export_enterprise_workbook(module,trend_key='130065',report='annual',scopes='合并期末')
+
+
 def test_trend_export_currency_comes_from_selected_period_cells():
     module=SimpleNamespace(module_key='main_indicators',module_name='主要财务指标',category='indicators',request_params={},raw_payload={},parsed_payload={
         'periods':['2025年年报','2024年年报'],'rows':[
@@ -74,6 +108,15 @@ def test_export_supports_source_toolbar_billion_yuan_unit():
         parsed_payload={'periods':['2025年年报'],'rows':[{'name':'资产','unit':'万元','values':['100000']}]})
     book,values=rows(export_enterprise_workbook(module,unit='十亿元'))
     assert values[2][2]==1
+    book.close()
+
+
+def test_excel_converts_provider_scientific_amount_without_changing_raw_value():
+    module=SimpleNamespace(module_name='利润表',category='statements',request_params={},raw_payload={},
+        parsed_payload={'periods':['2020年中报'],'rows':[{'name':'营业外收入','unit':'万元','values':['8.0E-6']}]})
+    book,values=rows(export_enterprise_workbook(module,unit='元'))
+    assert values[2][2]==0.08
+    assert module.parsed_payload['rows'][0]['values'][0]=='8.0E-6'
     book.close()
 
 

@@ -37,7 +37,7 @@ def _amount(value, source_unit, target_unit, decimals):
     if value is None:return ''
     text=str(value)
     if source_unit not in UNIT_SCALES and source_unit not in {'%','倍','天','元/股'}:return text
-    if not re.fullmatch(r'-?\d+(?:\.\d+)?',text):return text
+    if not re.fullmatch(r'-?\d+(?:\.\d+)?(?:[eE][+-]?\d{1,3})?',text):return text
     with localcontext() as context:
         context.prec=max(50,len(text)+20)
         number=Decimal(text)
@@ -82,6 +82,77 @@ def _column_selected(value,scopes,data_kinds):
     return (not scopes or scopes=='all' or scope in scopes.split(',')) and (not data_kinds or data_kinds=='all' or kind in data_kinds.split(','))
 
 
+def _statement_trend_output(module, periods, rows, key, report, start, end, window_years, scope, unit, decimals):
+    amount=next(row for row in rows if row.get('key')==key)
+    metadata=(module.parsed_payload or {}).get('metadata') or {}
+    export_headers=metadata.get('headExport') or []
+    row_index=rows.index(amount)
+    source_unit=amount.get('unit') or module.request_params.get('unit') or '万元'
+    if row_index+1<len(export_headers):
+        match=re.search(r'[（(]([^（）()]+)[）)]$',str(export_headers[row_index+1]))
+        if match:source_unit=match[1]
+    data_types=next((row.get('values') or [] for row in rows if row.get('key')=='dataType'),[])
+    currency_values=next((row.get('values') or [] for row in rows if row.get('key')=='displayCurrency'),[])
+    chosen=[period for period in dict.fromkeys(periods) if (not start or period[:4]>=start)
+            and (not end or period[:4]<=end) and _kind(period)==report]
+    if window_years:
+        quarter=lambda period:(_order(period)//10)*4+_order(period)%10
+        cutoff=max(map(quarter,periods),default=0)-window_years*4
+        chosen=[period for period in chosen if quarter(period)>cutoff]
+    chosen.sort(key=_order,reverse=True)
+    suffixes={'balance_sheet':[('较年初比(%)','%',""),('同比(%)','%','同比增长率'),('销售比(%)','%','销售百分比'),('资产比(%)','%','资产百分比'),('环比(%)','%','环比增长率')],
+              'income_statement':[('',source_unit,""),('同比(%)','%','同比增长率'),('销售比(%)','%','销售百分比')],
+              'cash_flow_statement':[('',source_unit,""),('同比(%)','%','同比增长率')]}[module.module_key]
+    positions=[[next((index for index,period in enumerate(periods)
+                      if period==selected and index<len(data_types) and data_types[index]==scope+suffix),None)
+                for suffix,_,_ in suffixes] for selected in chosen]
+    currencies=[str(currency_values[indices[0]]) if indices[0] is not None and indices[0]<len(currency_values)
+                and not _blank(currency_values[indices[0]]) else '' for indices in positions]
+    unique=set(currencies)
+    currency=currencies[0] if len(unique)==1 and currencies else ''
+    name=str(amount.get('name') or amount.get('label') or key)
+    first_label=f'{name}（{unit}{currency}）' if suffixes[0][1] in UNIT_SCALES else f'{name}(%)'
+    header=['序号','报告期',first_label,*[label+'(%)' for _,_,label in suffixes[1:]]]
+    if len(unique)>1:header.append('币种')
+    output=[header]
+    values=amount.get('values') or []
+    for number,(period,indices) in enumerate(zip(chosen,positions),1):
+        row=[number,period]
+        for index,(_,source,_) in zip(indices,suffixes):
+            raw=values[index] if index is not None and index<len(values) else None
+            row.append(_amount(raw,source,unit,decimals))
+        if len(unique)>1:row.append(currencies[number-1])
+        output.append(row)
+    return output
+
+
+def _workbook_bytes(module, output, source_style, decimals):
+    if source_style:
+        output=[['数据来源：企业预警通'],['序号','指标名称',*output[0][1:]],*[[index,*row] for index,row in enumerate(output[1:],1)]]
+    book=Workbook();sheet=book.active
+    sheet.title=re.sub(r'[\\/*?:\[\]]','',module.module_name or '财务数据')[:31] or '财务数据'
+    sheet.freeze_panes='C3' if source_style else 'B2'
+    for row_index,row in enumerate(output,1):
+        for column,value in enumerate(row,1):
+            cell=sheet.cell(row_index,column)
+            if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
+                cell.value=value;cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
+            elif source_style and column==1 and row_index>2:
+                cell.value=value;cell.number_format='0'
+            else:
+                cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
+                cell.data_type='s'
+            cell.font=Font(name='Microsoft YaHei',size=10,bold=row_index<=(2 if source_style else 1),color='FF4545' if str(value).startswith('-') else '20252C')
+            if row_index==1 or row_index%2==0:cell.fill=PatternFill('solid',fgColor='F7FAFF')
+    for column in range(1,sheet.max_column+1):sheet.column_dimensions[get_column_letter(column)].width=20
+    sheet.column_dimensions['B' if source_style else 'A'].width=34
+    if source_style:
+        sheet.column_dimensions['A'].width=8
+        sheet.merge_cells(start_row=1,start_column=1,end_row=1,end_column=sheet.max_column)
+    content=BytesIO();book.save(content);book.close()
+    return content.getvalue()
+
+
 def export_enterprise_workbook(module, *, report='all', start='', end='', descending=True, hide_empty=True, unit='万元', decimals=2, scopes='', data_kinds='', window_years=0, trend_key=''):
     if window_years not in (0,3,5,10):raise ValueError('invalid_export_options')
     if unit not in UNIT_SCALES or not 0<=decimals<=6:raise ValueError('invalid_export_options')
@@ -92,11 +163,15 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
     periods=[_period(value) for value in parsed.get('periods') or []]
     rows=parsed.get('rows') or [];heads=parsed.get('head') or []
     if trend_key:
-        if (getattr(module,'module_key','')!='main_indicators' or not re.fullmatch(r'\d+(?:_\d+)?',trend_key)
+        statement_trend=getattr(module,'module_key','') in {'balance_sheet','income_statement','cash_flow_statement'}
+        if (getattr(module,'module_key','') not in {'main_indicators','balance_sheet','income_statement','cash_flow_statement'}
+                or not re.fullmatch(r'\d+' if statement_trend else r'\d+(?:_\d+)?',trend_key)
                 or scopes not in {'合并期末','母公司期末'} or report not in {'annual','half','q1','q3'}
-                or not any(isinstance(row,dict) and row.get('key')==trend_key for row in rows)):
+                or sum(isinstance(row,dict) and row.get('key')==trend_key for row in rows)!=1):
             raise ValueError('invalid_trend_options')
         hide_empty=False
+        if statement_trend:
+            return _workbook_bytes(module,_statement_trend_output(module,periods,rows,trend_key,report,start,end,window_years,scopes,unit,decimals),False,decimals)
     output=[]
     if heads and isinstance(heads[0],list):
         reports=metadata.get('report') or [];previous_header=None
@@ -164,29 +239,4 @@ def export_enterprise_workbook(module, *, report='all', start='', end='', descen
             output[0].append('币种')
             for row,currency in zip(output[1:],currencies):row.append(currency)
     source_style=not trend_key and module.category in {'indicators','statements'} and bool(periods)
-    if source_style:
-        output=[['数据来源：企业预警通'],['序号','指标名称',*output[0][1:]],*[[index,*row] for index,row in enumerate(output[1:],1)]]
-    book=Workbook();sheet=book.active
-    sheet.title=re.sub(r'[\\/*?:\[\]]','',module.module_name or '财务数据')[:31] or '财务数据'
-    sheet.freeze_panes='C3' if source_style else 'B2'
-    for row_index,row in enumerate(output,1):
-        for column,value in enumerate(row,1):
-            cell=sheet.cell(row_index,column)
-            if isinstance(value,Decimal) and len(''.join(map(str,value.as_tuple().digits)).rstrip('0'))<=15:
-                cell.value=value;cell.number_format='#,##0'+('.'+'0'*decimals if decimals else '')
-            elif source_style and column==1 and row_index>2:
-                cell.value=value;cell.number_format='0'
-            else:
-                # Unsafe formula-like labels stay text. Amounts beyond Excel's
-                # numeric precision stay exact strings, never rounded to floats.
-                cell.value=format(value,f',.{max(decimals,-value.as_tuple().exponent)}f') if isinstance(value,Decimal) else '' if value is None else str(value)
-                cell.data_type='s'
-            cell.font=Font(name='Microsoft YaHei',size=10,bold=row_index<=(2 if source_style else 1),color='FF4545' if str(value).startswith('-') else '20252C')
-            if row_index==1 or row_index%2==0:cell.fill=PatternFill('solid',fgColor='F7FAFF')
-    for column in range(1,sheet.max_column+1):sheet.column_dimensions[get_column_letter(column)].width=20
-    sheet.column_dimensions['B' if source_style else 'A'].width=34
-    if source_style:
-        sheet.column_dimensions['A'].width=8
-        sheet.merge_cells(start_row=1,start_column=1,end_row=1,end_column=sheet.max_column)
-    content=BytesIO();book.save(content);book.close()
-    return content.getvalue()
+    return _workbook_bytes(module,output,source_style,decimals)

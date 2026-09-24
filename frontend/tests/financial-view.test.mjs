@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
+import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseStatementTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
 import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
@@ -29,6 +29,34 @@ test('indicator trend retains selected report scope and disclosed ratios without
  assert.deepEqual(result.rows.map(row=>row.values),[['871649.239191',null],['14.495727',null]]);
  assert.deepEqual(result.currencies,['人民币','人民币']);
  assert.equal(enterpriseIndicatorTrend(view,'missing',{report:'annual',start:'',end:'',scopes:'合并期末'}),null);
+});
+test('balance trend uses disclosed start-of-year percentage as primary, not asset amount',()=>{
+ const view={kind:'matrix',periods:Array(8).fill('2025年年报'),rows:[
+  {key:'dataType',values:['合并期末','合并期末较年初比(%)','合并期末同比(%)','合并期末销售比(%)','合并期末资产比(%)','合并期末环比(%)','母公司期末','母公司期末较年初比(%)']},
+  {key:'110050',label:'资产总计',unit:'万元',values:['1681573.338932','-5.576781','-5.576781','192.918580','100','-0.536379','686534.494737','13.273447']}
+ ]};
+ const trend=enterpriseStatementTrend(view,'110050','balance_sheet',{report:'annual',start:'',end:'',scopes:'合并期末'});
+ assert.deepEqual(trend.periods,['2025年年报']);
+ assert.deepEqual(trend.series.map(s=>s.values[0]),['-5.576781','-5.576781','192.918580','100','-0.536379']);
+ assert.equal(trend.series[0].unit,'%');
+ assert.equal(enterpriseStatementTrend(view,'110050','balance_sheet',{report:'annual',start:'',end:'',scopes:'母公司期末'}).series[0].values[0],'13.273447');
+});
+test('income trend retains amount and source ratios without deriving missing columns',()=>{
+ const view={kind:'matrix',periods:Array(3).fill('2025年年报'),rows:[
+  {key:'dataType',values:['合并期末','合并期末同比(%)','合并期末销售比(%)']},
+  {key:'120050',label:'营业收入',unit:'万元',values:['871649.239191','14.495727',null]}
+ ]};
+ const trend=enterpriseStatementTrend(view,'120050','income_statement',{report:'annual',start:'',end:'',scopes:'合并期末'});
+ assert.deepEqual(trend.series.map(s=>s.values[0]),['871649.239191','14.495727',null]);
+ assert.deepEqual(trend.series.map(s=>s.unit),['万元','%','%']);
+});
+test('statement trend does not pick the wrong source row for duplicate accounting keys',()=>{
+ const view={kind:'matrix',periods:['2025年年报'],rows:[
+  {key:'dataType',values:['合并期末']},
+  {key:'130065',label:'主表项目',unit:'万元',values:['1']},
+  {key:'130065',label:'补充披露',unit:'万元',values:['2']}
+ ]};
+ assert.equal(enterpriseStatementTrend(view,'130065','cash_flow_statement',{report:'annual',start:'',end:'',scopes:'合并期末'}),null);
 });
 test('source indicator formula metadata stays aligned after the report header and is descriptive only',()=>{
  const module={parsed_payload:{periods:['2025年年报'],rows:[{key:'a',name:'扣非后归母净利润',values:[null]},{key:'b',name:'其他',formula:'行内说明',values:['2']}],metadata:{formula:['报告期','优先取披露数据，若无则取归母净利润-非经常性损益。','元数据说明']}}};
@@ -178,6 +206,10 @@ test('enterprise monetary display uses exact decimal shifts and leaves percentag
  assert.equal(enterpriseDisplayValue('167.92','%','亿元',2),'167.92');
  assert.equal(enterpriseDisplayValue(null,'万元','元',2),'');
  assert.equal(enterpriseDisplayValue('合并期末','','万元',2),'合并期末');
+});
+test('provider scientific amounts use exact source units in the table',()=>{
+ assert.equal(enterpriseDisplayValue('8.0E-6','万元','元',2),'0.08');
+ assert.equal(enterpriseDisplayValue('8.0E-6','万元','万元',7),'0.0000080');
 });
 const b=statement('b','2024-12-31',[item('b1','800000')]);
 

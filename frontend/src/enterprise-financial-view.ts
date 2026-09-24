@@ -199,7 +199,11 @@ export function filterEnterpriseMatrix(view:Extract<EnterpriseModuleView,{kind:'
 
 export function enterpriseDisplayValue(value:unknown,sourceUnit:string,targetUnit:string,decimals:number){
  if(value===null||value===undefined||value==='')return '';
- const raw=String(value);
+ const source=String(value),scientific=source.match(/^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d{1,3})$/);
+ const raw=scientific?(()=>{
+  const digits=scientific[2]+(scientific[3]||''),point=scientific[2].length+Number(scientific[4]);
+  return scientific[1]+(point<=0?'0.'+'0'.repeat(-point)+digits:point>=digits.length?digits+'0'.repeat(point-digits.length):digits.slice(0,point)+'.'+digits.slice(point));
+ })():source;
  if(!/^-?\d+(\.\d+)?$/.test(raw))return raw;
  if(!(sourceUnit in unitPowers)&&!['%','倍','天','元/股'].includes(sourceUnit))return raw;
  const power=sourceUnit in unitPowers?unitPowers[sourceUnit]:0;
@@ -219,6 +223,25 @@ export function enterpriseIndicatorTrend(view:Extract<EnterpriseModuleView,{kind
  if(!/^\d+(?:_\d+)?$/.test(key)||!view.rows.some(row=>row.key===key)||!['annual','half','q1','q3'].includes(filter.report)||!['合并期末','母公司期末'].includes(filter.scopes||''))return null;
  const selected=filterEnterpriseMatrix(view,{...filter,descending:true,hideEmpty:false,dataKinds:'原始报表'});
  return {periods:selected.periods,rows:selected.rows.filter(row=>row.key===key||row.key===key+'_2'),currencies:selected.rows.find(row=>row.key==='displayCurrency')?.values||[]};
+}
+
+export function enterpriseStatementTrend(view:Extract<EnterpriseModuleView,{kind:'matrix'}>,key:string,statementType:string,filter:Pick<EnterpriseFilter,'report'|'start'|'end'|'scopes'|'windowYears'>){
+ if(!/^\d+$/.test(key)||!['annual','half','q1','q3'].includes(filter.report)||!['合并期末','母公司期末'].includes(filter.scopes||''))return null;
+ const matches=view.rows.filter(item=>item.key===key);
+ if(matches.length!==1||matches[0].section)return null;
+ const row=matches[0];
+ const suffixes=statementType==='balance_sheet'?[['较年初比(%)','', '%'],['同比(%)','同比增长率','%'],['销售比(%)','销售百分比','%'],['资产比(%)','资产百分比','%'],['环比(%)','环比增长率','%']]:
+  statementType==='income_statement'?[['','',row.unit],['同比(%)','同比增长率','%'],['销售比(%)','销售百分比','%']]:
+  statementType==='cash_flow_statement'?[['','',row.unit],['同比(%)','同比增长率','%']]:null;
+ if(!suffixes)return null;
+ const selected=filterEnterpriseMatrix(view,{...filter,descending:true,hideEmpty:false,scopes:'all',dataKinds:'all'});
+ const periods=[...new Set(selected.periods)],types=selected.rows.find(item=>item.key==='dataType')?.values||[];
+ const values=selected.rows.find(item=>item.key===key)?.values||[];
+ const currencies=selected.rows.find(item=>item.key==='displayCurrency')?.values||[];
+ const positions=suffixes.map(([suffix])=>periods.map(period=>selected.periods.findIndex((candidate,index)=>candidate===period&&String(types[index])===(filter.scopes||'')+suffix)));
+ return {periods,row,series:suffixes.map(([suffix,label,unit],seriesIndex)=>({key:key+suffix,label:label||row.label,unit,
+  values:positions[seriesIndex].map(index=>index<0?null:values[index])})),
+  currencies:positions[0].map(index=>index<0?'':currencies[index]??'')};
 }
 
 export function enterpriseTrendAxis(input:(number|null)[],unit:string,currency:string,includeZero:boolean){

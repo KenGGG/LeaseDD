@@ -6,6 +6,7 @@ import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodCont
 import {unitPowers} from './financial-view';
 import type {EnterpriseMatrixRow} from './enterprise-financial-view';
 import EnterpriseIndicatorTrend from './EnterpriseIndicatorTrend';
+import EnterpriseStatementTrend from './EnterpriseStatementTrend';
 
 function IndicatorHelp({row}:{row:EnterpriseMatrixRow}){
  const id=useId(),[anchor,setAnchor]=useState<{left:number;top:number}|null>(null);
@@ -104,6 +105,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
       {row.hasChildren&&<button className="enterprise-row-toggle" aria-label={(collapsedRows.has(row.uiKey??row.key)?'展开':'收起')+row.label} aria-expanded={!collapsedRows.has(row.uiKey??row.key)} onClick={()=>toggleRow(row.uiKey??row.key)}>{collapsedRows.has(row.uiKey??row.key)?'+':'−'}</button>}
       {row.label}{row.unit&&!(row.unit in unitPowers)&&!row.label.includes(row.unit)&&!(row.unit==='元/股'&&/[（(]元[）)]/.test(row.label))&&`(${row.unit})`}
       {module.module_key==='main_indicators'&&!row.section&&/^\d+(?:_\d+)?$/.test(row.key)&&<button className="enterprise-trend-trigger" aria-label={row.label+'指标趋势图'} onClick={()=>setTrendKey(row.key)}><svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><path d="M2 13h12M4 10V7M8 10V4M12 10V1" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button>}
+      {module.category==='statements'&&!row.section&&/^\d+$/.test(row.key)&&original.kind==='matrix'&&original.rows.filter(item=>item.key===row.key).length===1&&row.values.some(value=>value!==null&&value!==undefined&&value!=='')&&<button className="enterprise-trend-trigger" aria-label={row.label+'指标趋势图'} onClick={()=>setTrendKey(row.key)}><svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><path d="M2 13h12M4 10V7M8 10V4M12 10V1" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg></button>}
       <IndicatorHelp row={row}/>
      </th>
      {row.values.map((value,column)=>{const source=enterpriseSourceLink(value),cellUnit=enterpriseCellUnit(view.rows,row,column);return <td key={column} className={/^-/ .test(String(value))?'reference-negative':''} title={value==null?'原文空值':'原值：'+String(value)+' '+cellUnit}>{source?<a href={source.href} target="_blank" rel="noopener noreferrer">{source.label}</a>:enterpriseDisplayValue(value,cellUnit,unit,decimals)||(row.section?'':'-')}</td>})}
@@ -120,6 +122,6 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
    {!view.tables.length&&<p className="finance-empty">当前筛选无已导入期间。</p>}
   </div>:<p className="finance-empty">{view.unavailable?'企业预警通原站当前禁用此栏目，未计入数据采集成功项。':view.confirmed?'企业预警通该栏目暂无数据':'当前栏目数据尚待核对'}</p>}
   <details className="enterprise-source-details"><summary>数据来源与采集口径</summary><p>{module.module_name} · {module.endpoint_path}</p><p>报告期、报表类型及币种范围以当前已导入数据为准。筛选和显示换算不修改来源原值。</p><p className="finance-hash">{module.response_sha256}</p></details>
-  {trendKey&&original.kind==='matrix'&&<EnterpriseIndicatorTrend view={original} rowKey={trendKey} module={module} projectId={projectId} filter={{start,end,windowYears,currency,rate}} onClose={()=>setTrendKey('')}/>}
+  {trendKey&&original.kind==='matrix'&&(module.module_key==='main_indicators'?<EnterpriseIndicatorTrend view={original} rowKey={trendKey} module={module} projectId={projectId} filter={{start,end,windowYears,currency,rate}} onClose={()=>setTrendKey('')}/>:module.category==='statements'?<EnterpriseStatementTrend view={original} rowKey={trendKey} module={module} projectId={projectId} filter={{start,end,windowYears,currency,rate}} displayUnit={unit} onClose={()=>setTrendKey('')}/>:null)}
  </div>;
 }
