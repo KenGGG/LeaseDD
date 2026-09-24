@@ -102,6 +102,29 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         browser.close()
 
 
+def test_legacy_note_prompts_project_member_to_update_from_overview(monkeypatch):
+    old = {**MODULE, 'parsed_payload': {
+        **MODULE['parsed_payload'],
+        'metadata': {'report': ['20251231'], 'precise_record': False},
+    }}
+    monkeypatch.setattr(__import__(__name__), 'MODULE', old)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1600, 'height': 900})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='财务附注', exact=True).click()
+        page.get_by_role('button', name='⊞ 应收账款').click()
+        page.get_by_role('button', name='前五名应收账款').click()
+        alert = page.get_by_role('alert')
+        assert '项目概览' in alert.inner_text()
+        assert '企业预警通更新数据' in alert.inner_text()
+        assert '管理员' not in alert.inner_text()
+        browser.close()
+
+
 def test_desktop_financial_table_matches_source_reading_area(monkeypatch):
     periods = ["2026年中报", "2025年年报", "2025年三季报", "2024年年报",
                "2024年三季报", "2023年年报", "2023年三季报"]

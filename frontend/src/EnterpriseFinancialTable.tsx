@@ -89,7 +89,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  function toggleRow(key:string){setCollapsedRows(previous=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next})}
  return <div className={'enterprise-financial-view enterprise-reference enterprise-reference-'+module.category+(view.kind==='records'&&sparseRecord?' enterprise-reference-records':'')}>
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
-  {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；请由管理员重新导入。</p>}
+  {precisionState==='legacy_summary'&&<p role="alert" className="finance-pending">该栏目当前仍为旧摘要批次：金额经原站压缩显示，并非原站财务表的精确值；项目成员可在项目概览点击“企业预警通更新数据”重新导入。</p>}
   <div className="enterprise-reference-toolbar">
   {!filtersHidden&&periodControls&&<div className="enterprise-reference-filters">
    <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)} confirm={!sourceNoSortNotes.has(module.module_key)}/>
