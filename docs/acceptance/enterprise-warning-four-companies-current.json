@@ -1,0 +1,303 @@
+{
+  "companies": [
+    {
+      "project": "德方纳米",
+      "matched_company_name": "深圳市德方纳米科技股份有限公司",
+      "matched_company_code": "EE3886998BC906405B2889706A748814",
+      "import_state": "completed",
+      "module_coverage": {
+        "completed": 30,
+        "unavailable": 10,
+        "failed": 0,
+        "missing": 0,
+        "expected": 40
+      },
+      "period_counts": {
+        "solvency": 72,
+        "operation": 66,
+        "growth": 66,
+        "cash_analysis": 72,
+        "main_indicators": 72,
+        "balance_sheet": 389,
+        "income_statement": 280,
+        "cash_flow_statement": 184,
+        "per_share": 40,
+        "profitability": 72,
+        "dupont": 72,
+        "main_business": 54,
+        "restricted_assets": 9
+      },
+      "record_group_counts": {
+        "audit_report": 10,
+        "major_customers": 10,
+        "major_suppliers": 10,
+        "receivables_aging": 15,
+        "receivables_top_five": 15,
+        "receivables_impairment": 11,
+        "prepayments_aging": 17,
+        "prepayments_top_five": 15,
+        "other_receivables_aging": 15,
+        "other_receivables_top_five": 15,
+        "other_receivables_impairment": 5,
+        "payables_over_one_year": 5,
+        "other_payables_over_one_year": 1,
+        "cash_notes": 17,
+        "inventory_notes": 17,
+        "finance_costs": 18,
+        "nonrecurring_gains_losses": 33
+      },
+      "selected_samples": [
+        {
+          "concept": "total_assets",
+          "present": true
+        },
+        {
+          "concept": "total_liabilities",
+          "present": true
+        },
+        {
+          "concept": "net_profit",
+          "present": true
+        },
+        {
+          "concept": "net_operating_cash_flow",
+          "present": true
+        }
+      ],
+      "formula_statuses": [
+        "conflict",
+        "not_checked_unverified_source",
+        "passed"
+      ],
+      "enterprise_elapsed_seconds": 660.797,
+      "pdf_agnes_elapsed_seconds": null,
+      "failed_modules": [],
+      "agnes_calls": 0
+    },
+    {
+      "project": "金银河",
+      "matched_company_name": "佛山市金银河智能装备股份有限公司",
+      "matched_company_code": "39E224010A1417DF76FF38534ACBEB8C",
+      "import_state": "completed",
+      "module_coverage": {
+        "completed": 31,
+        "unavailable": 9,
+        "failed": 0,
+        "missing": 0,
+        "expected": 40
+      },
+      "period_counts": {
+        "growth": 77,
+        "cash_analysis": 83,
+        "main_indicators": 83,
+        "income_statement": 347,
+        "cash_flow_statement": 224,
+        "per_share": 46,
+        "profitability": 83,
+        "solvency": 83,
+        "operation": 77,
+        "dupont": 83,
+        "main_business": 66,
+        "restricted_assets": 13,
+        "balance_sheet": 471
+      },
+      "record_group_counts": {
+        "audit_report": 12,
+        "major_customers": 12,
+        "major_suppliers": 12,
+        "receivables_aging": 15,
+        "receivables_top_five": 19,
+        "receivables_impairment": 18,
+        "prepayments_aging": 21,
+        "prepayments_top_five": 17,
+        "other_receivables_property": 5,
+        "nonrecurring_gains_losses": 41,
+        "other_receivables_aging": 15,
+        "other_receivables_top_five": 17,
+        "other_receivables_impairment": 2,
+        "payables_over_one_year": 3,
+        "advances_over_one_year": 5,
+        "cash_notes": 22,
+        "inventory_notes": 21,
+        "finance_costs": 22
+      },
+      "selected_samples": [
+        {
+          "concept": "total_assets",
+          "present": true
+        },
+        {
+          "concept": "total_liabilities",
+          "present": true
+        },
+        {
+          "concept": "net_profit",
+          "present": true
+        },
+        {
+          "concept": "net_operating_cash_flow",
+          "present": true
+        }
+      ],
+      "formula_statuses": [
+        "not_checked_unverified_source",
+        "passed"
+      ],
+      "enterprise_elapsed_seconds": 1314.788,
+      "pdf_agnes_elapsed_seconds": null,
+      "failed_modules": [],
+      "agnes_calls": 0
+    },
+    {
+      "project": "气派科技",
+      "matched_company_name": "气派科技股份有限公司",
+      "matched_company_code": "711FC28886CAB3184A7BBBF5A053E944",
+      "import_state": "completed",
+      "module_coverage": {
+        "completed": 29,
+        "unavailable": 11,
+        "failed": 0,
+        "missing": 0,
+        "expected": 40
+      },
+      "period_counts": {
+        "balance_sheet": 322,
+        "cash_analysis": 61,
+        "cash_flow_statement": 149,
+        "dupont": 61,
+        "growth": 55,
+        "income_statement": 220,
+        "main_business": 39,
+        "main_indicators": 62,
+        "operation": 57,
+        "per_share": 32,
+        "profitability": 62,
+        "restricted_assets": 9,
+        "solvency": 60
+      },
+      "record_group_counts": {
+        "advances_aging": 3,
+        "audit_report": 10,
+        "cash_notes": 15,
+        "finance_costs": 15,
+        "inventory_notes": 15,
+        "major_customers": 10,
+        "major_suppliers": 10,
+        "nonrecurring_gains_losses": 25,
+        "other_payables_over_one_year": 14,
+        "other_receivables_aging": 14,
+        "other_receivables_top_five": 14,
+        "payables_over_one_year": 6,
+        "prepayments_aging": 15,
+        "prepayments_top_five": 14,
+        "receivables_aging": 14,
+        "receivables_top_five": 14
+      },
+      "selected_samples": [
+        {
+          "concept": "total_assets",
+          "present": true
+        },
+        {
+          "concept": "total_liabilities",
+          "present": true
+        },
+        {
+          "concept": "net_profit",
+          "present": true
+        },
+        {
+          "concept": "net_operating_cash_flow",
+          "present": true
+        }
+      ],
+      "formula_statuses": [
+        "not_checked_unverified_source",
+        "passed"
+      ],
+      "enterprise_elapsed_seconds": 1315.009,
+      "pdf_agnes_elapsed_seconds": null,
+      "failed_modules": [],
+      "agnes_calls": 0
+    },
+    {
+      "project": "昊志机电",
+      "matched_company_name": "广州市昊志机电股份有限公司",
+      "matched_company_code": "D674D12DDD04CFD13B059FD81946CE6D",
+      "import_state": "completed",
+      "module_coverage": {
+        "completed": 32,
+        "unavailable": 8,
+        "failed": 0,
+        "missing": 0,
+        "expected": 40
+      },
+      "period_counts": {
+        "per_share": 51,
+        "profitability": 82,
+        "main_indicators": 82,
+        "balance_sheet": 474,
+        "income_statement": 351,
+        "cash_flow_statement": 226,
+        "solvency": 78,
+        "operation": 76,
+        "growth": 77,
+        "cash_analysis": 82,
+        "dupont": 82,
+        "main_business": 72,
+        "restricted_assets": 9
+      },
+      "record_group_counts": {
+        "audit_report": 13,
+        "major_customers": 17,
+        "major_suppliers": 14,
+        "receivables_aging": 15,
+        "receivables_top_five": 24,
+        "receivables_impairment": 5,
+        "prepayments_aging": 24,
+        "prepayments_top_five": 17,
+        "other_receivables_aging": 15,
+        "other_receivables_top_five": 18,
+        "payables_aging": 4,
+        "payables_over_one_year": 10,
+        "advances_aging": 8,
+        "other_payables_aging": 3,
+        "other_payables_over_one_year": 6,
+        "cash_notes": 24,
+        "inventory_notes": 24,
+        "finance_costs": 24,
+        "nonrecurring_gains_losses": 45
+      },
+      "selected_samples": [
+        {
+          "concept": "total_assets",
+          "present": true
+        },
+        {
+          "concept": "total_liabilities",
+          "present": true
+        },
+        {
+          "concept": "net_profit",
+          "present": true
+        },
+        {
+          "concept": "net_operating_cash_flow",
+          "present": true
+        }
+      ],
+      "formula_statuses": [
+        "not_checked_unverified_source",
+        "passed"
+      ],
+      "enterprise_elapsed_seconds": 602.119,
+      "pdf_agnes_elapsed_seconds": null,
+      "failed_modules": [],
+      "agnes_calls": 0
+    }
+  ],
+  "enterprise_median_seconds": 987.7925,
+  "pdf_agnes_median_seconds": null,
+  "speed_comparison": "unproven_without_comparable_pdf_timing",
+  "scope": "Only the four approved companies and the current 企业预警通 version."
+}
