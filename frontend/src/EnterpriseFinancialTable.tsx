@@ -1,6 +1,6 @@
 import React,{useEffect,useId,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {enterpriseCellUnit,enterpriseColumnKind,enterpriseCurrencyVariants,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions} from './enterprise-financial-view';
+import {enterpriseCellUnit,enterpriseColumnKind,enterpriseCurrencyVariants,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,enterpriseReportOptions} from './enterprise-financial-view';
 import type {EnterpriseModuleData} from './api';
 import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from './enterprise-financial-view';
 import {unitPowers} from './financial-view';
@@ -86,7 +86,7 @@ export default function EnterpriseFinancialTable({modules,activeName,projectId}:
  return <div className="enterprise-financial-view enterprise-reference">
   <div className="finance-heading"><h2>{module.module_name}</h2>{periodControls&&<button className="reference-link" onClick={()=>setFiltersHidden(!filtersHidden)}>{filtersHidden?'展开筛选':'收起筛选'}</button>}</div>
   {!filtersHidden&&periodControls&&<div className="enterprise-reference-filters">
-   <ReportSelect value={report} onChange={setReport} options={toolbar.halfAnnualOnly?reportOptions.filter(([key])=>!['q1','q3'].includes(key)):reportOptions}/>
+   <ReportSelect value={report} onChange={setReport} options={enterpriseReportOptions(module)}/>
    {toolbar.yearsAndUnit&&<>
     <div className="reference-years"><span>年度</span>{[3,5,10].map(n=><button key={n} aria-pressed={windowYears===n} onClick={()=>{setWindowYears(n);setStart('');setEnd('')}}>{n}Y</button>)}<select aria-label="起始年度" value={start} onChange={e=>{setWindowYears(0);setStart(e.target.value)}}><option value="">起始</option>{years.map(y=><option key={y}>{y}</option>)}</select><span>至</span><select aria-label="结束年度" value={end} onChange={e=>{setWindowYears(0);setEnd(e.target.value)}}><option value="">结束</option>{years.map(y=><option key={y}>{y}</option>)}</select><button onClick={()=>{setWindowYears(0);setStart('');setEnd('')}}>全部</button></div>
     {(main||module.category==='analysis')&&scopeOptions.length>1&&<ReportSelect label={main?'报表类型':'合并类型'} value={scopes} onChange={setScopes} options={scopeOptions}/>}

@@ -40,6 +40,12 @@ export function enterpriseToolbarOptions(module:Pick<EnterpriseModuleData,'modul
   defaultKind:module.category==='statements'||business?'原始报表':'all',
   defaultYears:module.category==='statements'||module.category==='indicators'?3:module.category==='analysis'||business||restricted?5:0};
 }
+const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['q3','三季报'],['half','中报'],['q1','一季报']];
+const verifiedNoteReportMenus=new Set(['audit_report','receivables_aging','prepayments_aging','other_receivables_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses','main_business','restricted_assets']);
+export function enterpriseReportOptions(module:Pick<EnterpriseModuleData,'module_key'|'category'>){
+ if(module.category==='notes'&&verifiedNoteReportMenus.has(module.module_key))return reportOptions.filter(([key])=>['latest','annual','half'].includes(key));
+ return reportOptions;
+}
 export function enterpriseCurrencyVariants(module?:EnterpriseModuleData){
  const variants=module?.parsed_payload?.variants;
  return Array.isArray(variants)?variants.map(object):[];

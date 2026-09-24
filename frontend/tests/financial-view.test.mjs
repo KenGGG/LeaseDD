@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseStatementTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
+import {enterpriseCellUnit,selectEnterpriseCurrencyVariant,enterpriseToolbarOptions,enterpriseReportOptions,mergeEnterpriseModule,enterpriseIndicatorTrend,enterpriseStatementTrend,enterpriseTrendAxis} from '../src/enterprise-financial-view.ts';
 import {buildMatrix, cellState, diagnosticSummary, formatAmount, formatCellAmount, groupKey, periodLabel, toCsv} from '../src/financial-view.ts';
 import {enterpriseCoverage,enterpriseStateLabel,failedEnterpriseModules,selectedEnterpriseCandidate,taskDisplay,usesPdfEvidence} from '../src/api.ts';
 import {buildEnterpriseModuleView,filterEnterpriseMatrix,enterpriseHasPeriodControls,groupEnterpriseRecordTables,enterpriseDisplayValue,selectEnterpriseModule,enterpriseModuleGroups,collapseEnterpriseRows,enterpriseSourceLink,enterpriseExportUrl} from '../src/enterprise-financial-view.ts';
@@ -116,6 +116,12 @@ test('restricted assets uses its verified year/unit toolbar without invented cur
  assert.equal(options.halfAnnualOnly,true);
  assert.equal(enterpriseToolbarOptions({module_key:'main_business',category:'notes'}).currency,true);
  assert.equal(enterpriseToolbarOptions({module_key:'cash_notes',category:'notes'}).yearsAndUnit,false);
+});
+test('verified financial-note report menus have only the source three choices',()=>{
+ for(const module_key of ['audit_report','receivables_aging','prepayments_aging','other_receivables_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses','main_business','restricted_assets']){
+  assert.deepEqual(enterpriseReportOptions({module_key,category:'notes'}).map(([key])=>key),['latest','annual','half']);
+ }
+ assert.deepEqual(enterpriseReportOptions({module_key:'balance_sheet',category:'statements'}).map(([key])=>key),['all','latest','annual','q3','half','q1']);
 });
 test('business toolbar separates standalone data kinds and never scales ratios or exchange rates',()=>{
  const module={module_key:'main_business',category:'notes',request_params:{unitCode:'4'},parsed_payload:{periods:['2025年年报','2025年年报','2025年年报'],rows:[
