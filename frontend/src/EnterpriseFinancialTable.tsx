@@ -30,14 +30,16 @@ const reportOptions=[['all','全部'],['latest','最新'],['annual','年报'],['
 const sourceNoSortNotes=new Set(['audit_report','receivables_aging','other_receivables_aging','prepayments_aging',
  'payables_aging','other_payables_aging','other_receivables_property','advances_aging','cash_notes','inventory_notes','finance_costs','nonrecurring_gains_losses']);
 function ReportSelect({value,onChange,label='报告期',options=reportOptions,confirm=true}:{value:string;onChange:(value:string)=>void;label?:string;options?:string[][];confirm?:boolean}){
- const selected=value.split(',');
- const chosen=options.filter(([key])=>selected.includes(key));
- return <div className="reference-report"><span>{label}</span><details className="reference-select">
+ const [draft,setDraft]=useState(value);
+ const selected=(confirm?draft:value).split(',');
+ const chosen=options.filter(([key])=>value.split(',').includes(key));
+ const select=confirm?setDraft:onChange;
+ return <div className="reference-report"><span>{label}</span><details className="reference-select" onToggle={event=>{if(event.currentTarget.open)setDraft(value)}}>
   <summary aria-label={label+'筛选'}><span className="reference-selected">{chosen.length?chosen.map(([key,text])=><span className="reference-chip" key={key}>{text}<button type="button" aria-label={'移除'+text+'筛选'} onClick={event=>{event.preventDefault();event.stopPropagation();onChange(selected.filter(item=>item!==key).join(','))}}>×</button></span>):'请选择'}</span><span className="reference-select-arrow">▾</span></summary>
   <div className="reference-select-options">{options.map(([key,label])=><label key={key}><input type="checkbox" checked={selected.includes(key)} onChange={event=>{
-   if(key==='all'){onChange(event.target.checked?'all':'');return}
-   const next=new Set(selected.filter(item=>item&&item!=='all'));event.target.checked?next.add(key):next.delete(key);onChange([...next].join(','));
-  }}/>{label}</label>)}{confirm&&<button onClick={event=>{const details=event.currentTarget.closest('details');if(details)details.open=false}}>确定</button>}</div>
+   if(key==='all'){select(event.target.checked?'all':'');return}
+   const next=new Set(selected.filter(item=>item&&item!=='all'));event.target.checked?next.add(key):next.delete(key);select([...next].join(','));
+  }}/>{label}</label>)}{confirm&&<button onClick={event=>{onChange(draft);const details=event.currentTarget.closest('details');if(details)details.open=false}}>确定</button>}</div>
  </details></div>;
 }
 

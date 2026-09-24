@@ -89,6 +89,7 @@ def test_note_record_screen_filter_and_excel_use_same_source_periods():
         page.locator(".reference-select-options label").filter(has_text="最新").locator("input").uncheck()
         page.locator(".reference-select-options label").filter(has_text="年报").locator("input").uncheck()
         page.locator(".reference-select-options label").filter(has_text="中报").locator("input").check()
+        page.locator(".reference-select-options").get_by_role("button", name="确定").click()
         assert "59,200.12" in page.locator(".enterprise-record-table").inner_text()
         assert "68,137.78" not in page.locator(".enterprise-record-table").inner_text()
         page.get_by_label("显示单位").select_option("元")
@@ -242,6 +243,35 @@ def test_desktop_financial_table_matches_source_reading_area(monkeypatch):
         browser.close()
 
 
+def test_main_indicator_report_selection_waits_for_confirm(monkeypatch):
+    monkeypatch.setattr(__import__(__name__), 'MODULE', {
+        'module_key': 'main_indicators', 'module_name': '主要财务指标', 'category': 'indicators',
+        'state': 'completed', 'response_sha256': 'b' * 64,
+        'request_params': {'unit': '万元'}, 'raw_payload': {},
+        'parsed_payload': {'periods': ['2026年中报', '2025年年报'], 'rows': [
+            {'key': 'dataType', 'name': '报表类型', 'values': ['合并期末', '合并期末']},
+            {'key': 'revenue', 'name': '营业总收入', 'unit': '万元', 'values': ['10', '20']},
+        ]},
+    })
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, executable_path='/usr/bin/google-chrome')
+        page = browser.new_page(viewport={'width': 1440, 'height': 900})
+        page.route('**/api/**', serve)
+        page.goto(os.getenv('LEASEDD_BROWSER_URL', 'http://172.30.10.150:5173'))
+        page.get_by_role('button', name='附注测试项目').click()
+        page.get_by_role('button', name='财务核对', exact=True).click()
+        page.get_by_role('button', name='主要财务指标', exact=True).click()
+        table = page.locator('.enterprise-source-table')
+        expect(table.locator('thead th')).to_have_count(3)
+        report = page.locator('details.reference-select').first
+        report.locator('.reference-select-arrow').click()
+        report.locator('.reference-select-options label').filter(has_text='年报').locator('input').uncheck()
+        expect(table.locator('thead th')).to_have_count(3)
+        report.get_by_role('button', name='确定').click()
+        expect(table.locator('thead th')).to_have_count(2)
+        browser.close()
+
+
 def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
     monkeypatch.setattr(__import__(__name__), 'MODULE', {
         'module_key': 'per_share', 'module_name': '每股指标', 'category': 'analysis',
@@ -284,8 +314,10 @@ def test_analysis_toolbar_omits_source_absent_hide_empty_control(monkeypatch):
         with page.expect_download() as event:
             page.get_by_role('button', name='导出Excel').click()
         book = openpyxl.load_workbook(BytesIO(event.value.path().read_bytes()), read_only=True)
-        assert list(book.active.values)[0] == ('报告期', '2021年年报', '2022年年报',
-                                                '2023年年报', '2024年年报', '2025年年报', '2026年中报')
+        values = list(book.active.values)
+        assert values[0][0] == '数据来源：企业预警通'
+        assert values[1] == ('序号', '指标名称', '2021年年报', '2022年年报',
+                             '2023年年报', '2024年年报', '2025年年报', '2026年中报')
         book.close()
         page.screenshot(path='/tmp/leasedd-per-share-toolbar-fixture.png', full_page=False)
         browser.close()
