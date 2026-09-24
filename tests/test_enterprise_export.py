@@ -349,6 +349,57 @@ def test_other_verified_flat_notes_keep_raw_units_even_if_source_excel_format_is
         book.close()
 
 
+def test_payables_aging_exports_keep_source_periods_and_numeric_unit_cells():
+    cases=(
+        ('payables_aging',['20160630','20151231'],
+         ['4,969.19万','2,167.40万'],['110.76万','123.14万'],
+         ('序号','账龄','2016年中报','2015年年报'),('1','1年内',4969.19,2167.4)),
+        ('other_payables_aging',['20151231','20141231'],
+         ['1,792.14万','469.87万'],['3.08万','283.66万'],
+         ('序号','账龄','2015年年报','2014年年报'),('1','1年内',1792.14,469.87)),
+    )
+    for key,periods,first,second,header,first_output in cases:
+        module=SimpleNamespace(module_key=key,module_name=key,category='notes',
+                               request_params={},raw_payload={},parsed_payload={
+            'head':['账龄','1年内','1-2年'],
+            'rows':[[periods[i],first[i],second[i]] for i in range(2)],
+            'metadata':{}})
+        book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+        assert values==[
+            ('数据来源：企业预警通',None,None,None),
+            header,
+            first_output,
+            ('2','1-2年',110.76 if key=='payables_aging' else 3.08,
+             123.14 if key=='payables_aging' else 283.66)]
+        assert book.active['A3'].data_type=='s'
+        assert book.active['C3'].number_format=='###,###,##0.00"万"'
+        assert module.parsed_payload['rows'][0][1]==first[0]
+        book.close()
+
+
+def test_other_receivables_property_exports_keep_nonconsecutive_source_row_numbers():
+    module=SimpleNamespace(module_key='other_receivables_property',module_name='按款项性质分类',
+                           category='notes',request_params={},raw_payload={},parsed_payload={
+        'head':['项目名称','备用金','往来款','保证金及押金','代付代垫款','借款',
+                '退税','股权转让款','工程款','拆借款','坏账准备','土地款',
+                '租金','关联方往来','其他','合计'],
+        'rows':[['20220630','','','1,286.46万','','112.20万','','','','','','','','','97.51万','1,496.16万'],
+                ['20211231','','','1,827.25万','','94.48万','','','','','','','','','101.53万','2,023.26万']],
+        'metadata':{}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None),
+        ('序号','项目名称','2022年中报','2021年年报'),
+        ('3','保证金及押金',1286.46,1827.25),
+        ('5','借款',112.2,94.48),
+        ('14','其他',97.51,101.53),
+        ('15','合计',1496.16,2023.26)]
+    assert book.active['A3'].data_type=='s'
+    assert book.active['C3'].number_format=='###,###,##0.00"万"'
+    assert module.parsed_payload['rows'][0][3]=='1,286.46万'
+    book.close()
+
+
 def test_restricted_assets_excel_numbers_only_visible_rows_like_source():
     module=SimpleNamespace(module_key='restricted_assets',module_name='受限资产',category='notes',request_params={},raw_payload={},parsed_payload={
         'periods':['2026年中报'],
