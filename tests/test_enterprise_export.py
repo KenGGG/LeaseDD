@@ -377,6 +377,29 @@ def test_payables_aging_exports_keep_source_periods_and_numeric_unit_cells():
         book.close()
 
 
+def test_advances_aging_excel_matches_verified_source_rows_and_numeric_cells():
+    module=SimpleNamespace(module_key='advances_aging',module_name='预收款项账龄分析',category='notes',
+                           request_params={},raw_payload={},parsed_payload={
+        'head':['账龄','1年内','1-2年','2-3年','3年以上','合计'],
+        'rows':[['20191231','112.19万','29.44万','6.46万','26.08万','174.18万'],
+                ['20181231','163.63万','15.62万','21.38万','16.70万','217.34万'],
+                ['20171231','92.51万','22.69万','8.35万','9.14万','132.69万']],
+        'metadata':{}})
+    book,values=rows(export_enterprise_workbook(module,report='latest,annual'))
+    assert values==[
+        ('数据来源：企业预警通',None,None,None,None),
+        ('序号','账龄','2019年年报','2018年年报','2017年年报'),
+        ('1','1年内',112.19,163.63,92.51),
+        ('2','1-2年',29.44,15.62,22.69),
+        ('3','2-3年',6.46,21.38,8.35),
+        ('4','3年以上',26.08,16.7,9.14),
+        ('5','合计',174.18,217.34,132.69)]
+    assert book.active['C3'].data_type=='n'
+    assert book.active['C3'].number_format=='###,###,##0.00"万"'
+    assert module.parsed_payload['rows'][0][1]=='112.19万'
+    book.close()
+
+
 def test_other_receivables_property_exports_keep_nonconsecutive_source_row_numbers():
     module=SimpleNamespace(module_key='other_receivables_property',module_name='按款项性质分类',
                            category='notes',request_params={},raw_payload={},parsed_payload={
