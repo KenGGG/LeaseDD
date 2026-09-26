@@ -299,6 +299,59 @@ footer>span:not(.version){display:none}
 .task-list>div .badge{font-size:12px}
 }
 
+/* Shared application chrome: the financial workspace is the visual reference.
+   Keep primary navigation horizontal at every viewport; only local trees live left. */
+.app-shell{--blue:#087dff;--border:#e0e7f0;--text:#26384f;--muted:#64748b;background:#f7f9fc}
+.app-shell>.sidebar{inset:0 0 auto 0;width:100%;height:64px;z-index:20;flex-direction:row;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden;padding:0 16px;scroll-padding-inline:16px}
+.app-shell .sidebar .brand{display:flex;flex:0 0 auto;justify-content:flex-start;font-size:19px;white-space:nowrap;padding:0 12px 0 0;margin-right:18px}
+.app-shell .sidebar .brand>span:last-child{display:block}
+.app-shell .brandmark{width:32px;height:34px}
+.app-shell .brand small,.app-shell .workspace-label,.app-shell .nav-section,.app-shell .local-status{display:none}
+.app-shell .sidebar .nav{width:auto;flex:0 0 auto;white-space:nowrap;margin:0;padding:9px 11px;font-size:14px;gap:10px;justify-content:flex-start;border-radius:4px;min-height:40px}
+.app-shell .nav.active{background:#244b80;color:#fff;box-shadow:inset 3px 0 #82b5ff}
+.app-shell .nav-count{display:inline-block;margin-left:2px}
+.app-shell .sidebar-bottom{margin:0 0 0 auto;flex:0 0 auto}
+.app-shell .user-row{padding:0 0 0 10px;border:0}
+.app-shell .user-row>div{display:none}
+.app-shell .user-row>.avatar{display:grid}
+.app-shell>.workspace{margin-left:0;padding-top:64px;min-width:0;width:100%}
+.app-shell .workspace>header{height:40px;min-height:40px;padding:0 18px;flex-shrink:0}
+.app-shell .workspace>header .breadcrumb{padding:0;line-height:1.4}
+.app-shell main{max-width:none;padding:20px 24px 28px;margin:0}
+.app-shell .page-title{margin-bottom:20px}
+.app-shell .page-title h1{font-size:24px;border-left:3px solid #ff963c;padding-left:10px;line-height:1.4}
+.app-shell .page-title .eyebrow{display:none}
+.app-shell .page-title p{margin-top:7px;font-size:13px}
+.app-shell .panel,.app-shell .stat{border-radius:3px;box-shadow:none}
+.app-shell .panel-head{padding:16px 20px;background:#fff;border-bottom-color:#edf1f7}
+.app-shell .panel-head h2{font-size:17px;border-left:3px solid #ff963c;padding-left:9px}
+.app-shell .panel-head p{margin-top:5px}
+.app-shell .button{border-radius:3px;min-height:34px;padding:8px 12px;box-shadow:none}
+.app-shell .button.primary:hover{background:#006be0}
+.app-shell .button.secondary{border-color:#cadcf3;color:#344152}
+.app-shell input,.app-shell select,.app-shell textarea{border-radius:2px}
+.app-shell .search,.app-shell .badge{border-radius:3px}
+.app-shell .project-row:hover,.app-shell .document-row:hover{background:#f7faff}
+.app-shell .stat{padding:18px 20px;min-height:96px}
+.app-shell .stat strong{margin-top:7px}
+.app-shell .stagebar{border-radius:3px;background:#fff}
+.app-shell dialog{border-radius:4px}
+.app-shell footer{background:#fff;border-top:1px solid var(--border)}
+.login-page{--blue:#087dff;--border:#e0e7f0}
+.login-page .button,.login-page input{border-radius:3px}
+@media(max-width:760px){
+ .app-shell>.sidebar{padding-inline:10px;scroll-padding-inline:10px}
+ .app-shell .sidebar .brand{margin-right:6px;font-size:18px}
+ .app-shell .sidebar .nav{padding-inline:10px}
+ .app-shell main{padding:16px 12px 24px}
+ .app-shell .workspace>header{padding-inline:12px;height:auto;min-height:40px}
+ .app-shell .workspace>header .breadcrumb{padding-block:8px}
+ .app-shell .page-title h1{font-size:21px}
+ .app-shell .panel-head{padding:14px}
+ .app-shell .stat{padding:14px;min-width:0}
+ .app-shell .project-row{padding:16px 14px}
+}
+
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}
 }
 

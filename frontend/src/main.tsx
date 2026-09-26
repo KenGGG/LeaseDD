@@ -33,8 +33,8 @@ function App(){
  async function enqueue(kind:'generate'|'render',mode='synthetic'){await api('/projects/'+pid+'/tasks','POST',{kind,mode});await loadProject(pid);setNotice('任务已提交，后台处理完成后自动刷新。')}
  if(!ready)return <div className="loading">正在连接工作台…</div>;
  if(!user)return <Login error={error} busy={busy} onSubmit={(username,password)=>perform(async()=>{const u=await api<User>('/login','POST',{username,password});sessionEpoch.current++;setCsrf(u.csrf_token);setUser(u)})}/>;
- return <div className={'shell'+(tab==='finance'&&pid&&!adminPage?' finance-mode':'')}>
-  <aside className="sidebar"><a className="brand" href="#" onClick={()=>{setPid('');setAdminPage(false)}}><span className="brandmark"><FileText size={23}/></span><span>Lease<span className="brand-light">DD</span><small>融资租赁尽调工作台</small></span></a>
+ return <div className={'shell app-shell'+(tab==='finance'&&pid&&!adminPage?' finance-mode':'')}>
+  <aside className="sidebar" role="navigation" aria-label="应用栏目"><a className="brand" href="#" onClick={()=>{setPid('');setAdminPage(false)}}><span className="brandmark"><FileText size={23}/></span><span>Lease<span className="brand-light">DD</span><small>融资租赁尽调工作台</small></span></a>
    <div className="workspace-label">工作空间 <span>LOCAL</span></div>
    <button className={'nav '+(!pid&&!adminPage?'active':'')} onClick={()=>{setPid('');setAdminPage(false)}}><FolderOpen size={18}/>尽调项目<span className="nav-count">{projects.length}</span></button>
    {pid&&<><div className="nav-section">当前项目</div>{tabs.map(t=><button key={t.id} className={'nav '+(!adminPage&&tab===t.id?'active':'')} onClick={()=>{setTab(t.id);setAdminPage(false)}}><t.icon size={18}/>{t.label}</button>)}</>}
